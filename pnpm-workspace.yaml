@@ -1,0 +1,6 @@
+packages:
+  - "page"
+
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver
