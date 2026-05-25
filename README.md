@@ -23,3 +23,106 @@ Smartu focuses on rebuilding the useful parts of Zhitu's image optimization work
 - a CLI for local and batch compression,
 - a browser runtime for in-page image optimization,
 - and a website for demos, documentation, and practical usage examples.
+
+## Usage
+
+Build the package before running the local CLI or benchmark scripts:
+
+```bash
+pnpm build
+```
+
+Use the root package import. Smartu exposes runtime-specific APIs through conditional exports: Node resolves the `node` condition to the Sharp-based runtime by default, and browser bundlers resolve the `browser` condition to the Canvas-based runtime. There are no separate `smartu/node` or `smartu/browser` entrypoints.
+
+```ts
+import { createCompressionPlan } from "smartu";
+```
+
+Both Node and browser runtimes expose the same main API names:
+
+```ts
+import { analyzeImage, compressImage } from "smartu";
+```
+
+Node callers pass a `Uint8Array` buffer. File reading, output paths, and original-file replacement belong in the CLI or application layer:
+
+```ts
+import { readFile, writeFile } from "node:fs/promises";
+import { compressImage } from "smartu";
+
+const input = await readFile("input.png");
+const result = await compressImage(input);
+await writeFile("output.png", result.primary.buffer);
+```
+
+Browser callers pass a `Blob` or `Uint8Array` input to the same `compressImage` API.
+
+## CLI
+
+After installing the package, compress files or directories into a separate output directory:
+
+```bash
+smartu ./images --out ./compressed
+```
+
+Generate smaller WebP candidates when available:
+
+```bash
+smartu ./images --webp
+```
+
+Replace original files only when the primary compressed output is smaller:
+
+```bash
+smartu ./images --replace --quality q5
+```
+
+Useful options:
+
+- `--replace`: replace the original path only when the primary output is smaller.
+- `--no-convert`: disable automatic PNG/JPEG conversion candidates.
+- `--webp`: write a smaller WebP candidate beside the primary output.
+- `--quality q1..q6`: apply the old Zhitu quality-button adjustment.
+- `--json`: emit machine-readable results.
+
+## Browser Runtime
+
+The browser runtime uses the shared strategy model and browser codecs. It currently supports PNG, JPEG, and WebP encoding through Canvas APIs. GIF inputs are classified through the shared strategy, but the browser runtime keeps the source because browsers do not provide a native animated GIF encoder.
+
+In Next.js App Router projects, import the browser runtime from a client-only boundary such as a component loaded with `next/dynamic(..., { ssr: false })`. If TypeScript needs to resolve the browser condition, add `customConditions: ["browser"]` to the app tsconfig. Image compression should stay in the browser and should not be pulled into SSR.
+
+Unsupported original-file replacement falls back to download links in the website demo. File System Access API replacement can be added later without duplicating strategy logic.
+
+## Benchmark
+
+Run Smartu against representative samples:
+
+```bash
+node scripts/benchmark-strategy.mjs --samples /path/to/samples
+```
+
+Compare Smartu with output already produced by the old Zhitu app:
+
+```bash
+node scripts/benchmark-strategy.mjs \
+  --samples /path/to/original-samples \
+  --zhitu-output /path/to/zhitu-output
+```
+
+The benchmark writes compressed files and `benchmark-report.json` under `benchmarks/out/<timestamp>` unless `--out` is provided.
+
+## Website
+
+Run the Next.js site:
+
+```bash
+pnpm build:page
+pnpm --dir page start
+```
+
+For local development:
+
+```bash
+pnpm build
+pnpm dev:page
+```
