@@ -65,7 +65,7 @@ After installing the package, compress files or directories into a separate outp
 smartu ./images --out ./compressed
 ```
 
-Generate smaller WebP candidates when available:
+Try automatic PNG/JPEG format conversion and generate smaller WebP candidates when available:
 
 ```bash
 smartu ./images --format auto,webp
@@ -81,7 +81,7 @@ Useful options:
 
 - `--replace`: replace the original path only when the primary output is smaller.
 - `--recursive`: recurse into input directories.
-- `--format auto,png,jpg,jpeg,webp`: choose one or more output formats. `jpeg` is treated as `jpg`.
+- `--format auto,png,jpg,jpeg,webp`: choose one or more output formats. When omitted, Smartu keeps the source format. `auto` tries PNG/JPEG conversion only; WebP requires `webp`. `jpeg` is treated as `jpg`.
 - `--quality auto|q1..q6|<number>`: choose automatic strategy quality, a preset, or a numeric adjustment.
 - `--json`: emit machine-readable results.
 

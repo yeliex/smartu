@@ -112,6 +112,26 @@ describe("compression strategy planning", () => {
     assert.equal(plan.webp?.format, "webp");
   });
 
+  it("keeps WebP out of auto format conversion unless explicitly requested", () => {
+    const plan = createCompressionPlan(metadata({ realFormat: "png" }), { formats: ["auto"] });
+
+    assert.equal(plan.primary.format, "png");
+    assert.equal(plan.converted?.format, "jpg");
+    assert.equal(plan.webp, undefined);
+  });
+
+  it("keeps the source format when automatic conversion is disabled", () => {
+    const pngPlan = createCompressionPlan(metadata({ realFormat: "png" }), { allowFormatConversion: false });
+    const jpgPlan = createCompressionPlan(metadata({ realFormat: "jpg", jpegQuality: 95, colorCount: 200 }), {
+      allowFormatConversion: false,
+    });
+
+    assert.equal(pngPlan.primary.format, "png");
+    assert.equal(pngPlan.converted, undefined);
+    assert.equal(jpgPlan.primary.format, "jpg");
+    assert.equal(jpgPlan.converted, undefined);
+  });
+
   it("does not plan JPEG conversion for transparent PNG inputs", () => {
     const plan = createCompressionPlan(metadata({ realFormat: "png", hasAlpha: true }));
 
