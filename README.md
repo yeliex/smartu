@@ -68,21 +68,21 @@ smartu ./images --out ./compressed
 Generate smaller WebP candidates when available:
 
 ```bash
-smartu ./images --webp
+smartu ./images --format auto,webp
 ```
 
 Replace original files only when the primary compressed output is smaller:
 
 ```bash
-smartu ./images --replace --quality q5
+smartu ./images --replace
 ```
 
 Useful options:
 
 - `--replace`: replace the original path only when the primary output is smaller.
-- `--no-convert`: disable automatic PNG/JPEG conversion candidates.
-- `--webp`: write a smaller WebP candidate beside the primary output.
-- `--quality q1..q6`: apply the old Zhitu quality-button adjustment.
+- `--recursive`: recurse into input directories.
+- `--format auto,png,jpg,jpeg,webp`: choose one or more output formats. `jpeg` is treated as `jpg`.
+- `--quality auto|q1..q6|<number>`: choose automatic strategy quality, a preset, or a numeric adjustment.
 - `--json`: emit machine-readable results.
 
 ## Browser Runtime
@@ -101,7 +101,7 @@ Run Smartu against representative samples:
 node scripts/benchmark-strategy.mjs --samples /path/to/samples
 ```
 
-Compare Smartu with output already produced by the old Zhitu app:
+Compare Smartu with output already produced by Zhitu:
 
 ```bash
 node scripts/benchmark-strategy.mjs \

@@ -29,6 +29,7 @@ export {
 export {
   createCompressionPlan,
   shouldUsePng8,
+  type CompressionFormat,
   type CompressionOptions,
   type CompressionOutput,
   type CompressionPlan,
@@ -97,7 +98,7 @@ async function compressWithPlan(
   plan: CompressionPlan,
 ): Promise<CompressionResult> {
   const primaryCandidate = await encodeCandidate(buffer, metadata, plan.primary);
-  const primary = choosePrimary(buffer, primaryCandidate, plan.primary.reason, metadata.realFormat);
+  const primary = choosePrimary(buffer, primaryCandidate, plan.primary.reason, plan.primary.format, metadata.realFormat);
   const alternatives: CompressionOutput[] = [];
 
   if (plan.converted) {
@@ -191,6 +192,7 @@ function choosePrimary(
   candidateBuffer: Uint8Array,
   reason: string,
   format: ImageFormat,
+  sourceFormat: ImageFormat,
 ): CompressionOutput {
   if (candidateBuffer.byteLength < original.byteLength) {
     return {
@@ -199,6 +201,17 @@ function choosePrimary(
       buffer: candidateBuffer,
       size: candidateBuffer.byteLength,
       compressed: true,
+      reason,
+    };
+  }
+
+  if (format !== sourceFormat) {
+    return {
+      kind: "primary",
+      format,
+      buffer: candidateBuffer,
+      size: candidateBuffer.byteLength,
+      compressed: false,
       reason,
     };
   }

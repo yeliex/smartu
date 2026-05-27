@@ -10,9 +10,9 @@ const strategyRows = [
 
 const cliOptions = [
   ["--replace", "replace original paths only after a smaller primary output is produced"],
-  ["--no-convert", "disable PNG/JPEG conversion candidates"],
-  ["--webp", "write a smaller WebP candidate beside the primary output"],
-  ["--quality q1..q6", "apply the old Zhitu quality-button adjustment"],
+  ["--recursive", "recurse into input directories"],
+  ["--format auto,webp", "choose one or more output formats"],
+  ["--quality auto", "use strategy-selected quality by default"],
   ["--json", "emit machine-readable batch results"],
 ];
 
@@ -89,8 +89,8 @@ export default function Home() {
             <h2 className="text-2xl font-semibold tracking-normal text-zinc-950">CLI workflow</h2>
             <pre className="mt-6 overflow-x-auto rounded bg-zinc-950 p-5 text-sm leading-7 text-zinc-100">
               <code>{`pnpm build
-smartu ./images --out ./compressed --webp
-smartu ./images --replace --quality q5
+smartu ./images --out ./compressed --format auto,webp --recursive
+smartu ./images --replace
 pnpm benchmark:strategy -- --samples ./samples`}</code>
             </pre>
           </div>

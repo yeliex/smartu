@@ -44,7 +44,7 @@ describe("format detection", () => {
 });
 
 describe("quality selection", () => {
-  it("maps Zhitu quality presets to branch quality offsets", () => {
+  it("maps quality presets to branch quality offsets", () => {
     assert.equal(getQualityAdjustment(), 0);
     assert.equal(getQualityAdjustment({ qualityPreset: "q1" }), 80);
     assert.equal(getQualityAdjustment({ qualityPreset: "q6" }), -15);
@@ -102,7 +102,7 @@ describe("compression strategy planning", () => {
   });
 
   it("plans opaque PNG compression with JPEG and optional WebP candidates", () => {
-    const plan = createCompressionPlan(metadata({ realFormat: "png" }), { generateWebp: true });
+    const plan = createCompressionPlan(metadata({ realFormat: "png" }), { formats: ["auto", "webp"] });
 
     assert.equal(plan.branch, "png");
     assert.equal(plan.primary.format, "png");
@@ -120,10 +120,12 @@ describe("compression strategy planning", () => {
     assert.equal(plan.converted, undefined);
   });
 
-  it("respects disabled automatic format conversion", () => {
-    const plan = createCompressionPlan(metadata({ realFormat: "png" }), { allowFormatConversion: false });
+  it("uses an explicit format list instead of automatic conversion candidates", () => {
+    const plan = createCompressionPlan(metadata({ realFormat: "png" }), { formats: ["webp"] });
 
+    assert.equal(plan.primary.format, "webp");
     assert.equal(plan.converted, undefined);
+    assert.equal(plan.webp, undefined);
   });
 
   it("plans JPEG recompression and limited-color PNG conversion candidates", () => {
@@ -143,8 +145,8 @@ describe("compression strategy planning", () => {
   });
 
   it("keeps GIF and WebP in format-specific branches", () => {
-    const gifPlan = createCompressionPlan(metadata({ realFormat: "gif" }), { generateWebp: true });
-    const webpPlan = createCompressionPlan(metadata({ realFormat: "webp" }), { allowFormatConversion: true });
+    const gifPlan = createCompressionPlan(metadata({ realFormat: "gif" }), { formats: ["auto", "webp"] });
+    const webpPlan = createCompressionPlan(metadata({ realFormat: "webp" }), { formats: ["auto", "png"] });
 
     assert.equal(gifPlan.branch, "gif");
     assert.equal(gifPlan.primary.format, "gif");

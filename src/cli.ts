@@ -1,9 +1,11 @@
 #!/usr/bin/env node
+import { Command, InvalidArgumentError } from "commander";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   compressImage,
   type CompressionOptions,
+  type CompressionFormat,
   type CompressionResult,
   type QualityPreset,
 } from "./node.js";
@@ -25,6 +27,7 @@ interface FileCompressionResult extends CompressionResult {
 
 const imageExtensions = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
 const qualityPresets = new Set<QualityPreset>(["q1", "q2", "q3", "q4", "q5", "q6"]);
+const outputFormats = new Set<CompressionFormat>(["auto", "png", "jpg", "webp"]);
 
 /*
  * CLI owns filesystem concerns around the buffer-only package API: input
@@ -95,7 +98,7 @@ function resolveTargetPaths(
 ): { readonly primaryPath: string; readonly alternativePaths: readonly string[] } {
   const source = path.parse(sourcePath);
   const outputDir = options.replaceOriginal ? source.dir : options.outputDir ?? path.join(source.dir, "smartu-output");
-  const primaryPath = path.join(outputDir, `${source.name}.${result.metadata.realFormat}`);
+  const primaryPath = path.join(outputDir, `${source.name}.${result.primary.format}`);
   const alternativePaths = result.alternatives.map((output) =>
     path.join(outputDir, `${source.name}${output.suffix ?? ""}.${output.format}`),
   );
@@ -144,113 +147,88 @@ function shouldWritePrimary(
 }
 
 function parseArgs(args: readonly string[]): CliOptions {
-  const inputs: string[] = [];
-  let outputDir: string | undefined;
-  let replaceOriginal = false;
-  let recursive = true;
-  let allowFormatConversion = true;
-  let generateWebp = false;
-  let qualityPreset: QualityPreset | undefined;
-  let qualityAdjustment: number | undefined;
-  let json = false;
+  const program = new Command();
 
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
+  program
+    .name("smartu")
+    .description("Compress image files with the Smartu strategy.")
+    .argument("<inputs...>", "input files or directories")
+    .option("-o, --out <dir>", "write output files to a directory")
+    .option("--replace", "replace the original path only when the primary output is smaller", false)
+    .option("--recursive", "recurse into input directories", false)
+    .option("--format <formats>", "comma-separated output formats: auto,png,jpg,jpeg,webp", parseFormatList, ["auto"])
+    .option("-q, --quality <quality>", "quality mode: auto, q1..q6, or a numeric adjustment (default: auto)", parseQuality)
+    .option("--json", "print machine-readable results", false);
 
-    if (arg === undefined) {
-      continue;
-    }
+  program.parse(args, { from: "user" });
 
-    if (arg === "--help" || arg === "-h") {
-      printUsage();
-      process.exit(0);
-    }
-
-    if (arg === "--out" || arg === "-o") {
-      outputDir = readValue(args, index, arg);
-      index += 1;
-      continue;
-    }
-
-    if (arg === "--replace") {
-      replaceOriginal = true;
-      continue;
-    }
-
-    if (arg === "--recursive") {
-      recursive = true;
-      continue;
-    }
-
-    if (arg === "--no-recursive") {
-      recursive = false;
-      continue;
-    }
-
-    if (arg === "--no-convert") {
-      allowFormatConversion = false;
-      continue;
-    }
-
-    if (arg === "--webp") {
-      generateWebp = true;
-      continue;
-    }
-
-    if (arg === "--json") {
-      json = true;
-      continue;
-    }
-
-    if (arg === "--quality" || arg === "-q") {
-      const value = readValue(args, index, arg);
-      if (isQualityPreset(value)) {
-        qualityPreset = value;
-        qualityAdjustment = undefined;
-      } else {
-        const parsed = Number(value);
-        if (!Number.isFinite(parsed)) {
-          throw new Error(`Invalid quality value: ${value}`);
-        }
-        qualityAdjustment = parsed;
-        qualityPreset = undefined;
-      }
-      index += 1;
-      continue;
-    }
-
-    if (arg.startsWith("-")) {
-      throw new Error(`Unknown option: ${arg}`);
-    }
-
-    inputs.push(arg);
-  }
-
-  if (inputs.length === 0) {
-    printUsage();
-    throw new Error("Missing input file or directory.");
-  }
+  const rawOptions = program.opts<{
+    readonly out?: string;
+    readonly replace: boolean;
+    readonly recursive: boolean;
+    readonly format: readonly CompressionFormat[];
+    readonly quality?: { readonly qualityPreset?: QualityPreset; readonly qualityAdjustment?: number };
+    readonly json: boolean;
+  }>();
+  const inputs = program.args;
+  const quality = rawOptions.quality ?? {};
 
   return {
     inputs,
-    outputDir,
-    replaceOriginal,
-    recursive,
-    allowFormatConversion,
-    generateWebp,
-    qualityPreset,
-    qualityAdjustment,
-    json,
+    outputDir: rawOptions.out,
+    replaceOriginal: rawOptions.replace,
+    recursive: rawOptions.recursive,
+    formats: rawOptions.format,
+    qualityPreset: quality.qualityPreset,
+    qualityAdjustment: quality.qualityAdjustment,
+    json: rawOptions.json,
   };
 }
 
-function readValue(args: readonly string[], index: number, option: string): string {
-  const value = args[index + 1];
-  if (value === undefined || value.startsWith("-")) {
-    throw new Error(`Missing value for ${option}`);
+function parseFormatList(value: string): CompressionFormat[] {
+  const formats: CompressionFormat[] = [];
+
+  for (const part of value.split(",")) {
+    const normalized = part.trim().toLowerCase();
+    const format = normalized === "jpeg" ? "jpg" : normalized;
+
+    if (!outputFormats.has(format as CompressionFormat)) {
+      throw new InvalidArgumentError(`Invalid format: ${part}`);
+    }
+
+    if (!formats.includes(format as CompressionFormat)) {
+      formats.push(format as CompressionFormat);
+    }
   }
 
-  return value;
+  if (formats.length === 0) {
+    throw new InvalidArgumentError("At least one format is required.");
+  }
+
+  return formats;
+}
+
+function parseQuality(value: string): { readonly qualityPreset?: QualityPreset; readonly qualityAdjustment?: number } {
+  const normalized = value.toLowerCase();
+
+  if (normalized === "auto") {
+    return {};
+  }
+
+  if (isQualityPreset(normalized)) {
+    return {
+      qualityPreset: normalized,
+    };
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new InvalidArgumentError(`Invalid quality value: ${value}`);
+  }
+
+  return {
+    qualityAdjustment: parsed,
+  };
 }
 
 async function collectInputFiles(inputs: readonly string[], recursive: boolean): Promise<string[]> {
@@ -335,19 +313,4 @@ function normalizeVisibleFormat(extension: string): string | undefined {
   }
 
   return normalized === "jpeg" ? "jpg" : normalized;
-}
-
-function printUsage(): void {
-  process.stdout.write(`Usage: smartu [options] <file-or-directory...>
-
-Options:
-  -o, --out <dir>      Write output files to a directory (default: ./smartu-output)
-      --replace        Replace the original path only when the primary output is smaller
-      --no-recursive   Do not recurse into input directories
-      --no-convert     Disable automatic PNG/JPEG format conversion candidates
-      --webp           Also write a WebP candidate when it is smaller than the source
-  -q, --quality <q>    Old Zhitu quality preset q1..q6, or a numeric adjustment
-      --json           Print machine-readable results
-  -h, --help           Show this help
-`);
 }

@@ -19,8 +19,7 @@ for (const sample of samples) {
   const buffer = await fs.readFile(sample);
   const sourceSize = (await fs.stat(sample)).size;
   const result = await compressImage(buffer, {
-    allowFormatConversion: true,
-    generateWebp: true,
+    formats: ["auto", "webp"],
   });
   const smartuPath = await writePrimaryOutput(sample, smartuOutputDir, result);
   const zhituPath = options.zhituOutputDir ? await findZhituOutput(options.zhituOutputDir, sample) : undefined;
