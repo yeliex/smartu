@@ -156,7 +156,11 @@ function parseArgs(args: readonly string[]): CliOptions {
     .option("-o, --out <dir>", "write output files to a directory")
     .option("--replace", "replace the original path only when the primary output is smaller", false)
     .option("--recursive", "recurse into input directories", false)
-    .option("--format <formats>", "comma-separated output formats: auto,png,jpg,jpeg,webp", parseFormatList, ["auto"])
+    .option(
+      "--format <formats>",
+      "comma-separated output formats: auto,png,jpg,jpeg,webp; default keeps source format. auto tries PNG/JPEG conversion only, WebP requires webp",
+      parseFormatList,
+    )
     .option("-q, --quality <quality>", "quality mode: auto, q1..q6, or a numeric adjustment (default: auto)", parseQuality)
     .option("--json", "print machine-readable results", false);
 
@@ -166,7 +170,7 @@ function parseArgs(args: readonly string[]): CliOptions {
     readonly out?: string;
     readonly replace: boolean;
     readonly recursive: boolean;
-    readonly format: readonly CompressionFormat[];
+    readonly format?: readonly CompressionFormat[];
     readonly quality?: { readonly qualityPreset?: QualityPreset; readonly qualityAdjustment?: number };
     readonly json: boolean;
   }>();
@@ -178,10 +182,10 @@ function parseArgs(args: readonly string[]): CliOptions {
     outputDir: rawOptions.out,
     replaceOriginal: rawOptions.replace,
     recursive: rawOptions.recursive,
-    formats: rawOptions.format,
     qualityPreset: quality.qualityPreset,
     qualityAdjustment: quality.qualityAdjustment,
     json: rawOptions.json,
+    ...(rawOptions.format ? { formats: rawOptions.format } : { allowFormatConversion: false }),
   };
 }
 
