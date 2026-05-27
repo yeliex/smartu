@@ -51,13 +51,15 @@
   },
   "packageManager": "pnpm@10.33.4",
   "scripts": {
-    "build": "pkgroll",
+    "build": "pkgroll --tsconfig tsconfig.base.json",
     "build:page": "pnpm build && pnpm --dir page build",
     "benchmark:strategy": "node scripts/benchmark-strategy.mjs",
     "dev:page": "pnpm --dir page dev",
-    "lint": "tsc --noEmit && pnpm --dir page lint",
+    "lint": "pnpm test:type && pnpm --dir page lint",
     "prepublishOnly": "pnpm build",
-    "typecheck": "tsc --noEmit"
+    "test": "tsx --test test/**/*.test.ts",
+    "test:type": "tsc -b --noEmit",
+    "typecheck": "pnpm test:type"
   },
   "sideEffects": false,
   "devDependencies": {
@@ -67,6 +69,7 @@
     "@types/node": "^24.12.4",
     "@yeliex/tsconfig": "^1.0.0",
     "pkgroll": "^2.27.0",
+    "tsx": "^4.22.3",
     "typescript": "^5.9.3"
   },
   "dependencies": {

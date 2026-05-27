@@ -5,6 +5,7 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    "composite": true,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -14,6 +15,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    "tsBuildInfoFile": "../node_modules/.cache/page.tsbuildinfo",
     "plugins": [
       {
         "name": "next"

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": ".",
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.test.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.test.ts"
+  ]
+}

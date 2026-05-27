@@ -106,7 +106,7 @@ export function selectJpegCompressionQuality(
   metadata: JpegQualityMetadata,
   options: QualityOptions = {},
 ): number {
-  const baseQuality = selectJpegBaseQuality(metadata, options);
+  const baseQuality = selectJpegBaseQuality(metadata);
   let quality = baseQuality - 5;
 
   if (metadata.colorCount > 10_000) {
