@@ -22,7 +22,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "smartu": ["../src/browser.ts"]
     }
   },
   "include": [
@@ -31,7 +32,8 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    "../src/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

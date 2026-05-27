@@ -55,11 +55,10 @@
     "build:page": "pnpm build && pnpm --dir page build",
     "benchmark:strategy": "node scripts/benchmark-strategy.mjs",
     "dev:page": "pnpm --dir page dev",
-    "lint": "pnpm test:type && pnpm --dir page lint",
+    "lint": "pnpm --dir page lint",
     "prepublishOnly": "pnpm build",
     "test": "tsx --test test/**/*.test.ts",
-    "test:type": "tsc -b --noEmit",
-    "typecheck": "pnpm test:type"
+    "test:type": "tsc -b --noEmit"
   },
   "sideEffects": false,
   "devDependencies": {
