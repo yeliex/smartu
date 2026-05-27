@@ -1,0 +1,4 @@
+interface:
+  display_name: "Smartu Compress"
+  short_description: "Compress images with Smartu CLI"
+  default_prompt: "Use $smartu to compress local images with Smartu."
