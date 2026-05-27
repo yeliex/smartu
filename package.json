@@ -32,14 +32,14 @@
       }
     },
     "import": {
-      "types": "./dist/index.d.mts",
-      "default": "./dist/index.mjs"
+      "types": "./dist/node.d.mts",
+      "default": "./dist/node.mjs"
     },
     "require": {
-      "types": "./dist/index.d.cts",
-      "default": "./dist/index.cjs"
+      "types": "./dist/node.d.cts",
+      "default": "./dist/node.cjs"
     },
-    "default": "./dist/index.mjs"
+    "default": "./dist/node.mjs"
   },
   "homepage": "https://github.com/yeliex/smartu",
   "repository": {
@@ -51,12 +51,14 @@
   },
   "packageManager": "pnpm@10.33.4",
   "scripts": {
-    "build": "pkgroll",
-    "build:page": "pnpm --dir page build",
+    "build": "pkgroll --tsconfig tsconfig.base.json",
+    "build:page": "pnpm build && pnpm --dir page build",
+    "benchmark:strategy": "node scripts/benchmark-strategy.mjs",
     "dev:page": "pnpm --dir page dev",
-    "lint": "tsc --noEmit && pnpm --dir page lint",
+    "lint": "pnpm --dir page lint",
     "prepublishOnly": "pnpm build",
-    "typecheck": "tsc --noEmit"
+    "test": "tsx --test test/**/*.test.ts",
+    "test:type": "tsc -b --noEmit"
   },
   "sideEffects": false,
   "devDependencies": {
@@ -66,6 +68,11 @@
     "@types/node": "^24.12.4",
     "@yeliex/tsconfig": "^1.0.0",
     "pkgroll": "^2.27.0",
+    "tsx": "^4.22.3",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "sharp": "^0.34.5"
   }
 }

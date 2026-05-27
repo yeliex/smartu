@@ -1,0 +1,21 @@
+{
+  "extends": [
+    "@tsconfig/strictest/tsconfig.json",
+    "@tsconfig/node24/tsconfig.json",
+    "@yeliex/tsconfig"
+  ],
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "lib": [
+      "ES2024",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  }
+}
