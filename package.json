@@ -1,6 +1,6 @@
 {
   "name": "smartu",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Image compression toolkit for browser, Node.js, and CLI workflows.",
   "type": "module",
   "files": [
