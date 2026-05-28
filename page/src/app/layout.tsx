@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Smartu - Zhitu strategy rebuild",
-  description: "Shared image compression strategy for Node, CLI, and browser workflows.",
+  title: "Smartu - Open image compression toolkit",
+  description: "Intelligent image compression for browser, Node.js, and CLI workflows.",
 };
 
 export default function RootLayout({
