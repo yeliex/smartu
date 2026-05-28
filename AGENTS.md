@@ -47,6 +47,7 @@ Source responsibilities:
 - Add dependencies through package manager commands. Do not hand-edit dependency fields.
 - Implement the library and CLI first, then build browser compression on top of the library.
 - Browser behavior must use the shared compression library. Do not duplicate strategy logic for the browser runtime.
+- The website/browser demo must resolve `smartu` to the TypeScript browser source during page builds, for example through `page/tsconfig.json` path mapping to `../src/browser.ts`; do not require page-only builds or Vercel deployments to build the root package `dist` first.
 - Browser original-file replacement is only an enhancement for File System Access API capable browsers. Unsupported browsers should fall back to download or ZIP export.
 - Avoid extracting helpers for a single call site. Strategy abstractions must serve reuse across Node, CLI, and browser runtimes.
 - Use `rtk` for validation commands.
