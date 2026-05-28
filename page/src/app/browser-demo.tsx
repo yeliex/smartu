@@ -167,7 +167,7 @@ export default function BrowserDemo() {
         className="sr-only"
         type="file"
         multiple
-        accept="image/png,image/jpeg,image/gif,image/webp"
+        accept="image/png,image/jpeg,image/webp"
         onChange={(event) => void handleFiles(event.currentTarget.files)}
       />
 

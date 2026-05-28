@@ -1,6 +1,6 @@
 # Smartu Strategy Benchmark
 
-The benchmark compares Smartu output against representative PNG, JPEG, GIF, and WebP samples.
+The benchmark compares Smartu output against representative PNG, JPEG, and WebP samples.
 
 Run Smartu only:
 

@@ -68,7 +68,7 @@ const apiRows = [
 ];
 
 const optionRows = [
-  ["formats", "Optional candidate list using auto, png, jpg, gif, or webp. When omitted, Smartu uses auto and keeps the source format as the primary path."],
+  ["formats", "Optional candidate list using auto, png, jpg, or webp. When omitted, Smartu uses auto and keeps the source format as the primary path."],
   ["allowFormatConversion", "Controls PNG/JPEG conversion candidates in auto mode. It defaults to true, while encoded outputs are still kept only when smaller."],
   ["generateWebp", "Adds a WebP candidate beside the primary strategy output. WebP is opt-in instead of implied by auto."],
   ["qualityPreset", "Accepts q1 through q6 as strategy offsets. q5 is neutral; other presets make branch-selected quality more or less aggressive."],
@@ -213,7 +213,7 @@ export default function Home() {
             <h2 className="text-3xl font-semibold tracking-normal text-zinc-950">Use the same API from npm</h2>
             <p className="mt-4 text-base leading-7 text-zinc-600">
               Install one package and import from the root entrypoint. Conditional exports select the
-              Sharp-based Node runtime or the Canvas-based browser runtime.
+              Sharp-based Node runtime or the WASM codec browser runtime.
             </p>
           </div>
 

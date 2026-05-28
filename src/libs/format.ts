@@ -1,4 +1,4 @@
-export type ImageFormat = "png" | "jpg" | "gif" | "webp";
+export type ImageFormat = "png" | "jpg" | "webp";
 
 /*
  * Strategy routing must use the encoded format, not the filename. A renamed
@@ -16,14 +16,6 @@ export function detectImageFormat(buffer: Uint8Array): ImageFormat | undefined {
 
   if (buffer[0] === 0xff && buffer[1] === 0xd8) {
     return "jpg";
-  }
-
-  if (
-    buffer[0] === 0x47 &&
-    buffer[1] === 0x49 &&
-    buffer[2] === 0x46
-  ) {
-    return "gif";
   }
 
   if (

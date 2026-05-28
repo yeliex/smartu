@@ -1,6 +1,6 @@
 ---
 name: smartu
-description: Compress and optimize local image assets with Smartu. Use when the user asks to compress, optimize, shrink, batch-process, convert, or safely replace PNG, JPEG, GIF, WebP, or image directories, and when building or updating frontend pages, websites, or apps that include local image assets.
+description: Compress and optimize local image assets with Smartu. Use when the user asks to compress, optimize, shrink, batch-process, convert, or safely replace PNG, JPEG, WebP, or image directories, and when building or updating frontend pages, websites, or apps that include local image assets.
 ---
 
 # Smartu Compress

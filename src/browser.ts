@@ -8,10 +8,10 @@ import {
   createCompressionPlan,
   type CompressionOptions,
   type CompressionOutput,
-  type CompressionPlan,
   type CompressionResult,
   type ImageMetadata,
 } from "./libs/strategy.ts";
+import { decodeBrowserImage, encodeBrowserCandidate } from "./browser-codecs.ts";
 
 export {
   detectImageFormat,
@@ -45,35 +45,45 @@ interface BrowserCompressionResult extends CompressionResult {
   readonly alternativeBlobs: readonly Blob[];
 }
 
-/*
- * Browser analysis mirrors the Node metadata shape but uses platform codecs:
- * signatures come from bytes, dimensions from ImageBitmap, and color/alpha
- * signals from a canvas readback.
- */
 export async function analyzeImage(input: Blob | Uint8Array): Promise<ImageMetadata> {
   const buffer = await toUint8Array(input);
+  const decoded = await analyzeDecodedImage(buffer);
+  return decoded.metadata;
+}
+
+interface DecodedBrowserImage {
+  readonly metadata: ImageMetadata;
+  readonly imageData?: ImageData;
+}
+
+async function analyzeDecodedImage(buffer: Uint8Array): Promise<DecodedBrowserImage> {
   const realFormat = detectImageFormat(buffer);
 
   if (!realFormat) {
     throw new Error("Unsupported image format.");
   }
 
-  const blob = input instanceof Blob ? input : blobFromUint8Array(buffer, realFormat);
-  const bitmap = await createImageBitmap(blob);
-  const pixels = readPixels(bitmap);
-  const stats = readPixelStats(pixels.data);
-  bitmap.close();
+  const imageData = await decodeBrowserImage(buffer, realFormat);
+
+  if (!imageData) {
+    throw new Error(`Unsupported image format: ${realFormat}`);
+  }
+
+  const stats = readPixelStats(imageData.data);
 
   return {
-    realFormat,
-    width: pixels.width,
-    height: pixels.height,
-    area: pixels.width * pixels.height,
-    size: buffer.byteLength,
-    colorCount: stats.colorCount,
-    hasAlpha: realFormat !== "jpg" && stats.hasAlpha,
-    isPng8: realFormat === "png" && isPalettePng(buffer),
-    jpegQuality: realFormat === "jpg" ? estimateJpegQuality(buffer) : 0,
+    metadata: {
+      realFormat,
+      width: imageData.width,
+      height: imageData.height,
+      area: imageData.width * imageData.height,
+      size: buffer.byteLength,
+      colorCount: stats.colorCount,
+      hasAlpha: realFormat !== "jpg" && stats.hasAlpha,
+      isPng8: realFormat === "png" && isPalettePng(buffer),
+      jpegQuality: realFormat === "jpg" ? estimateJpegQuality(buffer) : 0,
+    },
+    imageData,
   };
 }
 
@@ -87,14 +97,14 @@ export async function compressImage(
   options: CompressionOptions = {},
 ): Promise<BrowserCompressionResult> {
   const buffer = await toUint8Array(input);
-  const metadata = await analyzeImage(buffer);
+  const { metadata, imageData } = await analyzeDecodedImage(buffer);
   const plan = createCompressionPlan(metadata, options);
-  const primaryCandidate = await encodeBrowserCandidate(buffer, metadata, plan.primary);
+  const primaryCandidate = await encodeBrowserCandidate(buffer, metadata, imageData, plan.primary);
   const primary = choosePrimary(buffer, primaryCandidate, plan.primary.reason, plan.primary.format, metadata.realFormat);
   const alternatives: CompressionOutput[] = [];
 
   if (plan.converted) {
-    const converted = await encodeBrowserCandidate(buffer, metadata, plan.converted);
+    const converted = await encodeBrowserCandidate(buffer, metadata, imageData, plan.converted);
     if (converted.byteLength < primary.size) {
       alternatives.push({
         kind: "converted",
@@ -109,7 +119,7 @@ export async function compressImage(
   }
 
   if (plan.webp) {
-    const webp = await encodeBrowserCandidate(buffer, metadata, plan.webp);
+    const webp = await encodeBrowserCandidate(buffer, metadata, imageData, plan.webp);
     if (webp.byteLength < metadata.size) {
       alternatives.push({
         kind: "webp",
@@ -139,46 +149,6 @@ export async function compressImage(
     primaryBlob: blobFromUint8Array(primary.buffer, primary.format),
     alternativeBlobs: alternatives.map((output) => blobFromUint8Array(output.buffer, output.format)),
   };
-}
-
-async function encodeBrowserCandidate(
-  buffer: Uint8Array,
-  metadata: ImageMetadata,
-  candidate: CompressionPlan["primary"],
-): Promise<Uint8Array> {
-  /*
-   * Canvas can encode still PNG/JPEG/WebP outputs but cannot emit animated GIF.
-   * Returning the original bytes preserves animation instead of silently
-   * flattening frames through a canvas draw.
-   */
-  if (candidate.format === "gif") {
-    return buffer;
-  }
-
-  const blob = blobFromUint8Array(buffer, metadata.realFormat);
-  const bitmap = await createImageBitmap(blob);
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-  const context = canvas.getContext("2d");
-
-  if (!context) {
-    bitmap.close();
-    throw new Error("Canvas 2D context is not available.");
-  }
-
-  if (candidate.format === "jpg") {
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-  }
-
-  context.drawImage(bitmap, 0, 0);
-  bitmap.close();
-
-  const encoded = await canvas.convertToBlob({
-    type: mimeForFormat(candidate.format),
-    quality: candidate.quality ? candidate.quality / 100 : undefined,
-  });
-
-  return new Uint8Array(await encoded.arrayBuffer());
 }
 
 function choosePrimary(
@@ -218,18 +188,6 @@ function choosePrimary(
     compressed: false,
     reason: "source-smaller-or-equal",
   };
-}
-
-function readPixels(bitmap: ImageBitmap): ImageData {
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-
-  if (!context) {
-    throw new Error("Canvas 2D context is not available.");
-  }
-
-  context.drawImage(bitmap, 0, 0);
-  return context.getImageData(0, 0, bitmap.width, bitmap.height);
 }
 
 /*

@@ -25,7 +25,7 @@ interface FileCompressionResult extends CompressionResult {
   readonly visibleFormat?: string;
 }
 
-const imageExtensions = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
+const imageExtensions = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 const qualityPresets = new Set<QualityPreset>(["q1", "q2", "q3", "q4", "q5", "q6"]);
 const outputFormats = new Set<CompressionFormat>(["auto", "png", "jpg", "webp"]);
 
