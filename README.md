@@ -101,7 +101,7 @@ Useful options:
 
 ## Browser Runtime
 
-The browser runtime uses the shared strategy model and WASM codecs for PNG, JPEG, and WebP decoding and encoding. PNG outputs are passed through OxiPNG for lossless optimization.
+The browser runtime uses the shared strategy model and WASM codecs for PNG, JPEG, and WebP decoding and encoding. PNG candidates can be palette-quantized before OxiPNG optimization.
 
 In Next.js App Router projects, import the browser runtime from a client-only boundary such as a component loaded with `next/dynamic(..., { ssr: false })`. If TypeScript needs to resolve the browser condition, add `customConditions: ["browser"]` to the app tsconfig. Image compression should stay in the browser and should not be pulled into SSR.
 

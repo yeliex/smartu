@@ -213,7 +213,7 @@ export default function Home() {
             <h2 className="text-3xl font-semibold tracking-normal text-zinc-950">Use the same API from npm</h2>
             <p className="mt-4 text-base leading-7 text-zinc-600">
               Install one package and import from the root entrypoint. Conditional exports select the
-              Sharp-based Node runtime or the Canvas-based browser runtime.
+              Sharp-based Node runtime or the WASM codec browser runtime.
             </p>
           </div>
 

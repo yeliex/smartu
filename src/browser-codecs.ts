@@ -2,6 +2,7 @@ import { decode as decodeJpeg, encode as encodeJpeg } from "@jsquash/jpeg";
 import { optimise as optimisePng } from "@jsquash/oxipng";
 import { decode as decodePng } from "@jsquash/png";
 import { decode as decodeWebp, encode as encodeWebp } from "@jsquash/webp";
+import { applyPalette, buildPalette, utils } from "image-q";
 import { type ImageFormat } from "./libs/format.ts";
 import { type CompressionPlan, type ImageMetadata } from "./libs/strategy.ts";
 
@@ -36,8 +37,8 @@ export async function encodeBrowserCandidate(
   if (candidate.format === "png") {
     /*
      * Source-byte optimization preserves useful PNG structure, while raw pixel
-     * encoding can pick better filters for poorly encoded sources. Try both for
-     * PNG inputs and keep the smaller result.
+     * encoding can pick better filters for poorly encoded sources. Palette
+     * quantization mirrors Node's Sharp palette path for PNG-like candidates.
      */
     const options = {
       level: 4,
@@ -45,13 +46,18 @@ export async function encodeBrowserCandidate(
       optimiseAlpha: metadata.hasAlpha,
     };
     const rawPng = new Uint8Array(await optimisePng(imageData, options));
+    const candidates = [rawPng];
 
-    if (metadata.realFormat !== "png") {
-      return rawPng;
+    if (metadata.realFormat === "png" || metadata.colorCount < 256) {
+      const quantized = await quantizePngPalette(imageData);
+      candidates.push(new Uint8Array(await optimisePng(quantized, options)));
     }
 
-    const sourcePng = new Uint8Array(await optimisePng(toArrayBuffer(buffer), options));
-    return sourcePng.byteLength < rawPng.byteLength ? sourcePng : rawPng;
+    if (metadata.realFormat === "png") {
+      candidates.push(new Uint8Array(await optimisePng(toArrayBuffer(buffer), options)));
+    }
+
+    return candidates.reduce((smallest, current) => (current.byteLength < smallest.byteLength ? current : smallest));
   }
 
   if (candidate.format === "jpg") {
@@ -98,6 +104,21 @@ function flattenToWhite(imageData: ImageData): ImageData {
   }
 
   return new ImageData(flattened, imageData.width, imageData.height);
+}
+
+async function quantizePngPalette(imageData: ImageData): Promise<ImageData> {
+  const points = utils.PointContainer.fromImageData(imageData);
+  const palette = await buildPalette([points], {
+    colorDistanceFormula: "pngquant",
+    paletteQuantization: "wuquant",
+    colors: 256,
+  });
+  const quantized = await applyPalette(points, palette, {
+    colorDistanceFormula: "pngquant",
+    imageQuantization: "floyd-steinberg",
+  });
+
+  return new ImageData(new Uint8ClampedArray(quantized.toUint8Array()), imageData.width, imageData.height);
 }
 
 function toArrayBuffer(buffer: Uint8Array): ArrayBuffer {
