@@ -8,10 +8,10 @@ import {
   createCompressionPlan,
   type CompressionOptions,
   type CompressionOutput,
-  type CompressionPlan,
   type CompressionResult,
   type ImageMetadata,
 } from "./libs/strategy.ts";
+import { decodeBrowserImage, encodeBrowserCandidate } from "./browser-codecs.ts";
 
 export {
   detectImageFormat,
@@ -45,35 +45,62 @@ interface BrowserCompressionResult extends CompressionResult {
   readonly alternativeBlobs: readonly Blob[];
 }
 
-/*
- * Browser analysis mirrors the Node metadata shape but uses platform codecs:
- * signatures come from bytes, dimensions from ImageBitmap, and color/alpha
- * signals from a canvas readback.
- */
 export async function analyzeImage(input: Blob | Uint8Array): Promise<ImageMetadata> {
   const buffer = await toUint8Array(input);
+  const decoded = await analyzeDecodedImage(buffer);
+  return decoded.metadata;
+}
+
+interface DecodedBrowserImage {
+  readonly metadata: ImageMetadata;
+  readonly imageData?: ImageData;
+}
+
+async function analyzeDecodedImage(buffer: Uint8Array): Promise<DecodedBrowserImage> {
   const realFormat = detectImageFormat(buffer);
 
   if (!realFormat) {
     throw new Error("Unsupported image format.");
   }
 
-  const blob = input instanceof Blob ? input : blobFromUint8Array(buffer, realFormat);
-  const bitmap = await createImageBitmap(blob);
-  const pixels = readPixels(bitmap);
-  const stats = readPixelStats(pixels.data);
-  bitmap.close();
+  if (realFormat === "gif") {
+    const gif = readGifMetadata(buffer);
+    return {
+      metadata: {
+        realFormat,
+        width: gif.width,
+        height: gif.height,
+        area: gif.width * gif.height,
+        size: buffer.byteLength,
+        colorCount: gif.colorCount,
+        hasAlpha: gif.hasAlpha,
+        isPng8: false,
+        jpegQuality: 0,
+      },
+    };
+  }
+
+  const imageData = await decodeBrowserImage(buffer, realFormat);
+
+  if (!imageData) {
+    throw new Error(`Unsupported image format: ${realFormat}`);
+  }
+
+  const stats = readPixelStats(imageData.data);
 
   return {
-    realFormat,
-    width: pixels.width,
-    height: pixels.height,
-    area: pixels.width * pixels.height,
-    size: buffer.byteLength,
-    colorCount: stats.colorCount,
-    hasAlpha: realFormat !== "jpg" && stats.hasAlpha,
-    isPng8: realFormat === "png" && isPalettePng(buffer),
-    jpegQuality: realFormat === "jpg" ? estimateJpegQuality(buffer) : 0,
+    metadata: {
+      realFormat,
+      width: imageData.width,
+      height: imageData.height,
+      area: imageData.width * imageData.height,
+      size: buffer.byteLength,
+      colorCount: stats.colorCount,
+      hasAlpha: realFormat !== "jpg" && stats.hasAlpha,
+      isPng8: realFormat === "png" && isPalettePng(buffer),
+      jpegQuality: realFormat === "jpg" ? estimateJpegQuality(buffer) : 0,
+    },
+    imageData,
   };
 }
 
@@ -87,14 +114,14 @@ export async function compressImage(
   options: CompressionOptions = {},
 ): Promise<BrowserCompressionResult> {
   const buffer = await toUint8Array(input);
-  const metadata = await analyzeImage(buffer);
+  const { metadata, imageData } = await analyzeDecodedImage(buffer);
   const plan = createCompressionPlan(metadata, options);
-  const primaryCandidate = await encodeBrowserCandidate(buffer, metadata, plan.primary);
+  const primaryCandidate = await encodeBrowserCandidate(buffer, metadata, imageData, plan.primary);
   const primary = choosePrimary(buffer, primaryCandidate, plan.primary.reason, plan.primary.format, metadata.realFormat);
   const alternatives: CompressionOutput[] = [];
 
   if (plan.converted) {
-    const converted = await encodeBrowserCandidate(buffer, metadata, plan.converted);
+    const converted = await encodeBrowserCandidate(buffer, metadata, imageData, plan.converted);
     if (converted.byteLength < primary.size) {
       alternatives.push({
         kind: "converted",
@@ -109,7 +136,7 @@ export async function compressImage(
   }
 
   if (plan.webp) {
-    const webp = await encodeBrowserCandidate(buffer, metadata, plan.webp);
+    const webp = await encodeBrowserCandidate(buffer, metadata, imageData, plan.webp);
     if (webp.byteLength < metadata.size) {
       alternatives.push({
         kind: "webp",
@@ -139,46 +166,6 @@ export async function compressImage(
     primaryBlob: blobFromUint8Array(primary.buffer, primary.format),
     alternativeBlobs: alternatives.map((output) => blobFromUint8Array(output.buffer, output.format)),
   };
-}
-
-async function encodeBrowserCandidate(
-  buffer: Uint8Array,
-  metadata: ImageMetadata,
-  candidate: CompressionPlan["primary"],
-): Promise<Uint8Array> {
-  /*
-   * Canvas can encode still PNG/JPEG/WebP outputs but cannot emit animated GIF.
-   * Returning the original bytes preserves animation instead of silently
-   * flattening frames through a canvas draw.
-   */
-  if (candidate.format === "gif") {
-    return buffer;
-  }
-
-  const blob = blobFromUint8Array(buffer, metadata.realFormat);
-  const bitmap = await createImageBitmap(blob);
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-  const context = canvas.getContext("2d");
-
-  if (!context) {
-    bitmap.close();
-    throw new Error("Canvas 2D context is not available.");
-  }
-
-  if (candidate.format === "jpg") {
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-  }
-
-  context.drawImage(bitmap, 0, 0);
-  bitmap.close();
-
-  const encoded = await canvas.convertToBlob({
-    type: mimeForFormat(candidate.format),
-    quality: candidate.quality ? candidate.quality / 100 : undefined,
-  });
-
-  return new Uint8Array(await encoded.arrayBuffer());
 }
 
 function choosePrimary(
@@ -220,18 +207,6 @@ function choosePrimary(
   };
 }
 
-function readPixels(bitmap: ImageBitmap): ImageData {
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-
-  if (!context) {
-    throw new Error("Canvas 2D context is not available.");
-  }
-
-  context.drawImage(bitmap, 0, 0);
-  return context.getImageData(0, 0, bitmap.width, bitmap.height);
-}
-
 /*
  * Match the Node cutoff: after the highest strategy threshold is exceeded, an
  * exact color count would not change branch selection.
@@ -263,6 +238,44 @@ function readPixelStats(data: Uint8ClampedArray): { readonly colorCount: number;
     colorCount: colors.size,
     hasAlpha,
   };
+}
+
+function readGifMetadata(buffer: Uint8Array): {
+  readonly width: number;
+  readonly height: number;
+  readonly colorCount: number;
+  readonly hasAlpha: boolean;
+} {
+  if (buffer.byteLength < 10) {
+    throw new Error("Unable to read GIF dimensions.");
+  }
+
+  const width = (buffer[6] ?? 0) + ((buffer[7] ?? 0) << 8);
+  const height = (buffer[8] ?? 0) + ((buffer[9] ?? 0) << 8);
+  const packed = buffer[10] ?? 0;
+  const colorCount = packed & 0x80 ? 2 ** ((packed & 0x07) + 1) : 0;
+
+  return {
+    width,
+    height,
+    colorCount,
+    hasAlpha: hasGifTransparency(buffer),
+  };
+}
+
+function hasGifTransparency(buffer: Uint8Array): boolean {
+  for (let offset = 0; offset + 7 < buffer.length; offset += 1) {
+    if (
+      buffer[offset] === 0x21 &&
+      buffer[offset + 1] === 0xf9 &&
+      buffer[offset + 2] === 0x04 &&
+      ((buffer[offset + 3] ?? 0) & 0x01) === 0x01
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 async function toUint8Array(input: Blob | Uint8Array): Promise<Uint8Array> {
