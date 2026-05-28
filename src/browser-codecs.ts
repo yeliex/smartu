@@ -1,6 +1,6 @@
 import { decode as decodeJpeg, encode as encodeJpeg } from "@jsquash/jpeg";
 import { optimise as optimisePng } from "@jsquash/oxipng";
-import { decode as decodePng, encode as encodePng } from "@jsquash/png";
+import { decode as decodePng } from "@jsquash/png";
 import { decode as decodeWebp, encode as encodeWebp } from "@jsquash/webp";
 import { type ImageFormat } from "./libs/format.ts";
 import { type CompressionPlan, type ImageMetadata } from "./libs/strategy.ts";
@@ -39,17 +39,23 @@ export async function encodeBrowserCandidate(
 
   if (candidate.format === "png") {
     /*
-     * For PNG sources, optimise the encoded bytes directly so indexed inputs and
-     * ancillary chunks do not get churned through an unnecessary raw re-encode.
+     * Source-byte optimization preserves useful PNG structure, while raw pixel
+     * encoding can pick better filters for poorly encoded sources. Try both for
+     * PNG inputs and keep the smaller result.
      */
-    const png = metadata.realFormat === "png" ? toArrayBuffer(buffer) : await encodePng(imageData, { bitDepth: 8 });
-    return new Uint8Array(
-      await optimisePng(png, {
-        level: 4,
-        interlace: false,
-        optimiseAlpha: metadata.hasAlpha,
-      }),
-    );
+    const options = {
+      level: 4,
+      interlace: false,
+      optimiseAlpha: metadata.hasAlpha,
+    };
+    const rawPng = new Uint8Array(await optimisePng(imageData, options));
+
+    if (metadata.realFormat !== "png") {
+      return rawPng;
+    }
+
+    const sourcePng = new Uint8Array(await optimisePng(toArrayBuffer(buffer), options));
+    return sourcePng.byteLength < rawPng.byteLength ? sourcePng : rawPng;
   }
 
   if (candidate.format === "jpg") {
