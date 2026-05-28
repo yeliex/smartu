@@ -25,8 +25,8 @@ Source responsibilities:
 
 - `package.json`: compression-related dependency inventory, including `imagemagick`, `imagemin`, `imagemin-pngquant`, `imagemin-webp`, `pngquant`, `pngcrush`, `jpegquality`, `image-palette`, `imageinfo`, and `tinify`.
 - `testCheck.js`: checks and installs ImageMagick. The old implementation depends on `/opt/ImageMagick/bin/convert` and `/opt/ImageMagick/bin/identify`.
-- `img.js`: wraps image metadata extraction, actual format detection, JPEG source-quality estimation, PNG alpha detection, PNG8 detection, and low-level ImageMagick/pngquant/pngcrush/WebP/GIF operations.
-- `image.js`: core strategy branches. This file contains PNG, JPEG, GIF, and PNG8 processing flows, quality thresholds, automatic format-conversion candidates, and size comparison logic.
+- `img.js`: wraps image metadata extraction, actual format detection, JPEG source-quality estimation, PNG alpha detection, PNG8 detection, and low-level ImageMagick/pngquant/pngcrush/WebP operations.
+- `image.js`: core strategy branches. This file contains PNG, JPEG, PNG8, and WebP processing flows, quality thresholds, automatic format-conversion candidates, and size comparison logic.
 - `logic.js`: batch processing, concurrency control, output directory handling, temporary directory handling, original-file replacement, and quality-button mapping.
 - `function.js`: file selection, recursive directory scanning, copying, and temporary directory cleanup. It also contains old app network-reporting behavior, which must not be reproduced in Smartu.
 

@@ -143,7 +143,7 @@ async function encodeCandidate(
   metadata: ImageMetadata,
   candidate: CompressionPlan["primary"],
 ): Promise<Uint8Array> {
-  const image = sharp(buffer, { animated: metadata.realFormat === "gif" });
+  const image = sharp(buffer);
 
   if (candidate.format === "png") {
     const palette = metadata.realFormat === "png" || metadata.colorCount < 256;
@@ -166,14 +166,6 @@ async function encodeCandidate(
         quality: candidate.quality ?? 75,
         progressive: true,
         mozjpeg: true,
-      })
-      .toBuffer();
-  }
-
-  if (candidate.format === "gif") {
-    return image
-      .gif({
-        effort: 10,
       })
       .toBuffer();
   }
@@ -272,7 +264,7 @@ function normalizeSharpFormat(format: string | undefined): ImageFormat | undefin
     return "jpg";
   }
 
-  if (format === "png" || format === "gif" || format === "webp") {
+  if (format === "png" || format === "webp") {
     return format;
   }
 

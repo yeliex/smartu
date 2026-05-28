@@ -29,10 +29,6 @@ export async function encodeBrowserCandidate(
   imageData: ImageData | undefined,
   candidate: CompressionPlan["primary"],
 ): Promise<Uint8Array> {
-  if (candidate.format === "gif") {
-    return buffer;
-  }
-
   if (!imageData) {
     throw new Error(`Cannot encode ${candidate.format} without decoded pixels.`);
   }

@@ -63,23 +63,6 @@ async function analyzeDecodedImage(buffer: Uint8Array): Promise<DecodedBrowserIm
     throw new Error("Unsupported image format.");
   }
 
-  if (realFormat === "gif") {
-    const gif = readGifMetadata(buffer);
-    return {
-      metadata: {
-        realFormat,
-        width: gif.width,
-        height: gif.height,
-        area: gif.width * gif.height,
-        size: buffer.byteLength,
-        colorCount: gif.colorCount,
-        hasAlpha: gif.hasAlpha,
-        isPng8: false,
-        jpegQuality: 0,
-      },
-    };
-  }
-
   const imageData = await decodeBrowserImage(buffer, realFormat);
 
   if (!imageData) {
@@ -238,44 +221,6 @@ function readPixelStats(data: Uint8ClampedArray): { readonly colorCount: number;
     colorCount: colors.size,
     hasAlpha,
   };
-}
-
-function readGifMetadata(buffer: Uint8Array): {
-  readonly width: number;
-  readonly height: number;
-  readonly colorCount: number;
-  readonly hasAlpha: boolean;
-} {
-  if (buffer.byteLength < 10) {
-    throw new Error("Unable to read GIF dimensions.");
-  }
-
-  const width = (buffer[6] ?? 0) + ((buffer[7] ?? 0) << 8);
-  const height = (buffer[8] ?? 0) + ((buffer[9] ?? 0) << 8);
-  const packed = buffer[10] ?? 0;
-  const colorCount = packed & 0x80 ? 2 ** ((packed & 0x07) + 1) : 0;
-
-  return {
-    width,
-    height,
-    colorCount,
-    hasAlpha: hasGifTransparency(buffer),
-  };
-}
-
-function hasGifTransparency(buffer: Uint8Array): boolean {
-  for (let offset = 0; offset + 7 < buffer.length; offset += 1) {
-    if (
-      buffer[offset] === 0x21 &&
-      buffer[offset + 1] === 0xf9 &&
-      buffer[offset + 2] === 0x04 &&
-      ((buffer[offset + 3] ?? 0) & 0x01) === 0x01
-    ) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 async function toUint8Array(input: Blob | Uint8Array): Promise<Uint8Array> {

@@ -19,7 +19,6 @@ describe("format detection", () => {
   it("detects image formats from encoded bytes", () => {
     assert.equal(detectImageFormat(new Uint8Array([0x89, 0x50, 0x4e, 0x47])), "png");
     assert.equal(detectImageFormat(new Uint8Array([0xff, 0xd8, 0xff, 0xdb])), "jpg");
-    assert.equal(detectImageFormat(new Uint8Array([0x47, 0x49, 0x46, 0x38])), "gif");
     assert.equal(
       detectImageFormat(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50])),
       "webp",
@@ -28,6 +27,7 @@ describe("format detection", () => {
 
   it("returns undefined for unsupported bytes", () => {
     assert.equal(detectImageFormat(new Uint8Array([0x00, 0x01, 0x02, 0x03])), undefined);
+    assert.equal(detectImageFormat(new Uint8Array([0x47, 0x49, 0x46, 0x38])), undefined);
   });
 
   it("checks PNG palette color type from the IHDR byte", () => {
@@ -164,13 +164,9 @@ describe("compression strategy planning", () => {
     assert.equal(plan.converted, undefined);
   });
 
-  it("keeps GIF and WebP in format-specific branches", () => {
-    const gifPlan = createCompressionPlan(metadata({ realFormat: "gif" }), { formats: ["auto", "webp"] });
+  it("keeps WebP in a format-specific branch", () => {
     const webpPlan = createCompressionPlan(metadata({ realFormat: "webp" }), { formats: ["auto", "png"] });
 
-    assert.equal(gifPlan.branch, "gif");
-    assert.equal(gifPlan.primary.format, "gif");
-    assert.equal(gifPlan.webp, undefined);
     assert.equal(webpPlan.branch, "webp");
     assert.equal(webpPlan.primary.format, "webp");
     assert.equal(webpPlan.converted, undefined);

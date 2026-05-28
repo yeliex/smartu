@@ -23,7 +23,7 @@ Instead of blindly applying one compression setting to every file, Smartu aims t
 ## What Smartu Does
 
 - Detects the actual image format instead of relying only on the file extension.
-- Chooses a suitable compression path for common image types such as PNG, JPEG, GIF, and WebP.
+- Chooses a suitable compression path for common image types such as PNG, JPEG, and WebP.
 - Evaluates whether converting an image to another format is likely to produce a better result.
 - Uses a set of experience-based thresholds to select an appropriate compression ratio with minimal visible quality loss.
 - Compares compression candidates and keeps the smaller result only when it improves on the source.
@@ -101,7 +101,7 @@ Useful options:
 
 ## Browser Runtime
 
-The browser runtime uses the shared strategy model and WASM codecs for PNG, JPEG, and WebP decoding and encoding. PNG outputs are passed through OxiPNG for lossless optimization. GIF inputs are classified through the shared strategy, but the browser runtime keeps the source until a non-worker GIF optimizer is added.
+The browser runtime uses the shared strategy model and WASM codecs for PNG, JPEG, and WebP decoding and encoding. PNG outputs are passed through OxiPNG for lossless optimization.
 
 In Next.js App Router projects, import the browser runtime from a client-only boundary such as a component loaded with `next/dynamic(..., { ssr: false })`. If TypeScript needs to resolve the browser condition, add `customConditions: ["browser"]` to the app tsconfig. Image compression should stay in the browser and should not be pulled into SSR.
 

@@ -41,7 +41,7 @@ export interface StrategyCandidate {
 }
 
 export interface CompressionPlan {
-  readonly branch: "png" | "png8" | "jpg" | "gif" | "webp";
+  readonly branch: "png" | "png8" | "jpg" | "webp";
   readonly primary: StrategyCandidate;
   readonly converted?: StrategyCandidate;
   readonly webp?: StrategyCandidate;
@@ -152,19 +152,6 @@ export function createCompressionPlan(
     });
 
     return createPlan("jpg", candidates);
-  }
-
-  if (metadata.realFormat === "gif") {
-    /*
-     * GIF is kept as its own branch so runtimes can preserve animation when
-     * their codec cannot safely produce an equivalent animated output.
-     */
-    return createPlan("gif", [
-      {
-        format: "gif",
-        reason: "gif-optimization",
-      },
-    ]);
   }
 
   /*
