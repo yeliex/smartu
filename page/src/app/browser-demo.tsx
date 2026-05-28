@@ -1,30 +1,42 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SettingsIcon } from "lucide-react";
 import {
   compressImage,
-  type CompressionOutput,
   type CompressionOptions,
+  type CompressionOutput,
 } from "smartu";
-
-type BrowserCompressionResult = Awaited<ReturnType<typeof compressImage>>;
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTrigger } from "@/components/ui/popover";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface DemoOutput {
   readonly name: string;
   readonly url: string;
   readonly size: number;
-  readonly kind: string;
+  readonly format: string;
+  readonly reason: string;
+}
+
+interface FileRow {
+  readonly id: string;
+  readonly name: string;
+  readonly sourceSize: number;
+  readonly outputs: readonly DemoOutput[];
+  readonly error?: string;
+  readonly processing: boolean;
 }
 
 export default function BrowserDemo() {
-  const [file, setFile] = useState<File | undefined>();
-  const [result, setResult] = useState<BrowserCompressionResult | undefined>();
-  const [outputs, setOutputs] = useState<readonly DemoOutput[]>([]);
+  const [rows, setRows] = useState<readonly FileRow[]>([]);
   const [allowFormatConversion, setAllowFormatConversion] = useState(true);
-  const [generateWebp, setGenerateWebp] = useState(false);
-  const [status, setStatus] = useState("Idle");
-  const [error, setError] = useState<string | undefined>();
+  const [generateWebp, setGenerateWebp] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const rowsRef = useRef<readonly FileRow[]>([]);
 
   const options = useMemo<CompressionOptions>(
     () => ({
@@ -36,147 +48,190 @@ export default function BrowserDemo() {
   );
 
   useEffect(() => {
-    return () => {
-      for (const output of outputs) {
-        URL.revokeObjectURL(output.url);
-      }
-    };
-  }, [outputs]);
+    rowsRef.current = rows;
+  }, [rows]);
 
-  async function runCompression(nextFile: File) {
-    setStatus("Processing");
-    setError(undefined);
-    setResult(undefined);
-    setOutputs((currentOutputs) => {
-      for (const output of currentOutputs) {
-        URL.revokeObjectURL(output.url);
-      }
-      return [];
-    });
+  useEffect(() => {
+    return () => revokeRows(rowsRef.current);
+  }, []);
 
+  async function compressFile(nextFile: File, nextOptions: CompressionOptions, id: string) {
     try {
-      const nextResult = await compressImage(nextFile, options);
-      const nextOutputs: DemoOutput[] = [
-        {
-          name: outputFileName(nextFile.name, nextResult.primary),
-          url: URL.createObjectURL(nextResult.primaryBlob),
-          size: nextResult.primary.size,
-          kind: nextResult.primary.kind,
-        },
-        ...nextResult.alternatives.map((output, index) => ({
-          name: outputFileName(nextFile.name, output),
-          url: URL.createObjectURL(nextResult.alternativeBlobs[index] ?? nextResult.primaryBlob),
-          size: output.size,
-          kind: output.kind,
-        })),
+      const result = await compressImage(nextFile, nextOptions);
+      const outputs: DemoOutput[] = [
+        toDemoOutput(nextFile.name, result.primary, result.primaryBlob),
+        ...result.alternatives.map((output, index) =>
+          toDemoOutput(nextFile.name, output, result.alternativeBlobs[index] ?? result.primaryBlob),
+        ),
       ];
 
-      setResult(nextResult);
-      setOutputs(nextOutputs);
-      setStatus(nextResult.primary.compressed ? "Compressed" : "Kept original");
+      setRows((currentRows) =>
+        currentRows.map((row) =>
+          row.id === id
+            ? {
+                ...row,
+                outputs,
+                processing: false,
+              }
+            : row,
+        ),
+      );
     } catch (compressionError) {
-      setError(compressionError instanceof Error ? compressionError.message : String(compressionError));
-      setStatus("Failed");
+      setRows((currentRows) =>
+        currentRows.map((row) =>
+          row.id === id
+            ? {
+                ...row,
+                error: compressionError instanceof Error ? compressionError.message : String(compressionError),
+                processing: false,
+              }
+            : row,
+        ),
+      );
     }
   }
 
   async function handleFiles(files: FileList | null) {
-    const nextFile = files?.item(0);
-    if (!nextFile) {
+    const nextFiles = Array.from(files ?? []);
+    if (nextFiles.length === 0) {
       return;
     }
 
-    setFile(nextFile);
-    await runCompression(nextFile);
+    const nextOptions = options;
+    const nextRows = nextFiles.map((file, index) => ({
+        id: rowId(file, index),
+        name: file.name,
+        sourceSize: file.size,
+        outputs: [],
+        processing: true,
+      }));
+
+    setRows((currentRows) => [...currentRows, ...nextRows]);
+
+    for (const [index, file] of nextFiles.entries()) {
+      await compressFile(file, nextOptions, nextRows[index]?.id ?? rowId(file, index));
+    }
   }
 
   return (
-    <section className="flex min-h-[620px] min-w-0 flex-col rounded border border-zinc-200 bg-zinc-50 p-4 shadow-sm">
-      <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
-        <div>
-          <h2 className="text-base font-semibold text-zinc-950">Browser runtime</h2>
-          <p className="mt-1 text-xs text-zinc-500">PNG, JPEG, WebP via shared strategy</p>
-        </div>
-        <span className="rounded bg-white px-2.5 py-1 text-xs font-medium text-zinc-600 ring-1 ring-zinc-200">
-          {status}
-        </span>
-      </div>
+    <Card className="w-full min-w-0 bg-muted/30">
+      <CardHeader>
+        <CardTitle>Try compress in browser</CardTitle>
+        <CardDescription>PNG, JPEG, and WebP through the shared Smartu strategy.</CardDescription>
+        <CardAction>
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button aria-label="Compression settings" size="icon-lg" variant="outline">
+                  <SettingsIcon data-icon="inline-start" />
+                </Button>
+              }
+            />
+            <PopoverContent align="end">
+              <PopoverHeader>
+                <PopoverDescription>Settings apply to the next selected file batch.</PopoverDescription>
+              </PopoverHeader>
+              <label className="flex items-center justify-between rounded-lg border p-3 text-sm">
+                <span>Format candidates</span>
+                <Checkbox
+                  checked={allowFormatConversion}
+                  onCheckedChange={(checked) => setAllowFormatConversion(checked === true)}
+                />
+              </label>
+              <label className="flex items-center justify-between rounded-lg border p-3 text-sm">
+                <span>WebP candidate</span>
+                <Checkbox
+                  checked={generateWebp}
+                  onCheckedChange={(checked) => setGenerateWebp(checked === true)}
+                />
+              </label>
+            </PopoverContent>
+          </Popover>
+        </CardAction>
+      </CardHeader>
 
-      <button
-        className="mt-4 flex min-h-52 flex-1 flex-col items-center justify-center rounded border border-dashed border-zinc-300 bg-white px-4 text-center transition hover:border-zinc-500"
-        onClick={() => inputRef.current?.click()}
-        type="button"
-      >
-        <span className="grid size-11 place-items-center rounded bg-zinc-950 text-lg font-semibold text-white">
-          +
-        </span>
-        <span className="mt-4 text-sm font-semibold text-zinc-950">
-          {file ? file.name : "Choose an image"}
-        </span>
-        <span className="mt-2 max-w-xs text-xs leading-5 text-zinc-500">
-          The file stays in this browser session.
-        </span>
-      </button>
+      <CardContent className="flex flex-col gap-4">
+        <Button
+          className="flex min-h-44 flex-col border-dashed text-center"
+          onClick={() => inputRef.current?.click()}
+          type="button"
+          variant="outline"
+        >
+          <span className="font-semibold">Choose images</span>
+          <span className="max-w-sm text-xs text-muted-foreground">
+            Settings changes apply to the next selected file batch.
+          </span>
+        </Button>
       <input
         ref={inputRef}
         className="sr-only"
         type="file"
+        multiple
         accept="image/png,image/jpeg,image/gif,image/webp"
         onChange={(event) => void handleFiles(event.currentTarget.files)}
       />
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="flex items-center justify-between rounded border border-zinc-200 bg-white px-3 py-3 text-sm text-zinc-700">
-          <span>Format candidates</span>
-          <input
-            checked={allowFormatConversion}
-            className="size-4 accent-zinc-950"
-            onChange={(event) => setAllowFormatConversion(event.currentTarget.checked)}
-            type="checkbox"
-          />
-        </label>
-        <label className="flex items-center justify-between rounded border border-zinc-200 bg-white px-3 py-3 text-sm text-zinc-700">
-          <span>WebP candidate</span>
-          <input
-            checked={generateWebp}
-            className="size-4 accent-zinc-950"
-            onChange={(event) => setGenerateWebp(event.currentTarget.checked)}
-            type="checkbox"
-          />
-        </label>
-      </div>
-
-      {error ? (
-        <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">{error}</p>
-      ) : null}
-
-      {result ? (
-        <div className="mt-4 rounded border border-zinc-200 bg-white">
-          <div className="grid grid-cols-3 border-b border-zinc-200 px-3 py-3 text-xs font-semibold uppercase text-zinc-500">
-            <span>Branch</span>
-            <span>Source</span>
-            <span>Output</span>
-          </div>
-          <div className="grid grid-cols-3 px-3 py-3 text-sm text-zinc-800">
-            <span>{result.plan.branch}</span>
-            <span>{formatSize(result.metadata.size)}</span>
-            <span>{formatSize(result.primary.size)}</span>
-          </div>
-          {outputs.map((output) => (
-            <a
-              key={`${output.kind}-${output.name}`}
-              className="flex items-center justify-between border-t border-zinc-200 px-3 py-3 text-sm text-zinc-800 transition hover:bg-zinc-50"
-              download={output.name}
-              href={output.url}
-            >
-              <span className="min-w-0 break-all pr-3">{output.name}</span>
-              <span className="text-zinc-500">{formatSize(output.size)}</span>
-            </a>
-          ))}
-        </div>
-      ) : null}
-    </section>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>File</TableHead>
+              <TableHead className="w-24">Source</TableHead>
+              <TableHead>Outputs</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.length > 0 ? (
+              rows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell className="min-w-0 max-w-[380px] whitespace-normal break-all">{row.name}</TableCell>
+                  <TableCell>{formatSize(row.sourceSize)}</TableCell>
+                  <TableCell className="whitespace-normal">
+                    <div className="flex min-w-0 flex-wrap gap-2">
+                      {row.processing ? <span className="text-muted-foreground">Processing</span> : null}
+                      {row.error ? <span className="text-destructive">{row.error}</span> : null}
+                      {row.outputs.map((output) => (
+                        <Badge key={`${row.id}-${output.name}`} variant="secondary" render={<a download={output.name} href={output.url} title={output.reason} />}>
+                          {output.format} {formatSize(output.size)} {formatCompressionRatio(row.sourceSize, output.size)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell className="text-muted-foreground" colSpan={3}>
+                  No files selected.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
+}
+
+function rowId(file: File, index: number): string {
+  return `${file.name}-${file.size}-${file.lastModified}-${index}-${crypto.randomUUID()}`;
+}
+
+function revokeRows(rows: readonly FileRow[]) {
+  for (const row of rows) {
+    for (const output of row.outputs) {
+      URL.revokeObjectURL(output.url);
+    }
+  }
+}
+
+function toDemoOutput(sourceName: string, output: CompressionOutput, blob: Blob): DemoOutput {
+  return {
+    name: outputFileName(sourceName, output),
+    url: URL.createObjectURL(blob),
+    size: output.size,
+    format: output.format,
+    reason: output.reason,
+  };
 }
 
 function formatSize(size: number): string {
@@ -185,6 +240,15 @@ function formatSize(size: number): string {
   }
 
   return `${Math.round((size / 1024 / 1024) * 10) / 10} MB`;
+}
+
+function formatCompressionRatio(sourceSize: number, outputSize: number): string {
+  if (sourceSize <= 0) {
+    return "0%";
+  }
+
+  const ratio = Math.max(0, 1 - outputSize / sourceSize);
+  return `${Math.round(ratio * 1000) / 10}%`;
 }
 
 function outputFileName(sourceName: string, output: CompressionOutput): string {
