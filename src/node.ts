@@ -8,7 +8,6 @@ import {
   type CompressionPlan,
   type CompressionResult,
   type ImageMetadata,
-  shouldUsePng8,
 } from "./libs/strategy.ts";
 
 export {
@@ -147,7 +146,7 @@ async function encodeCandidate(
   const image = sharp(buffer, { animated: metadata.realFormat === "gif" });
 
   if (candidate.format === "png") {
-    const palette = metadata.realFormat === "jpg" ? metadata.colorCount < 256 : shouldUsePng8(metadata);
+    const palette = metadata.realFormat === "png" || metadata.colorCount < 256;
     return image
       .png({
         compressionLevel: 9,
