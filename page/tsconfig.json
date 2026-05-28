@@ -23,7 +23,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "smartu": ["../src/browser.ts"]
     }
   },
   "include": [
