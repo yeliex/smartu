@@ -2,8 +2,8 @@ import {
   detectImageFormat,
   isPalettePng,
   type ImageFormat,
-} from "./libs/format.js";
-import { estimateJpegQuality } from "./libs/quality.js";
+} from "./libs/format.ts";
+import { estimateJpegQuality } from "./libs/quality.ts";
 import {
   createCompressionPlan,
   type CompressionOptions,
@@ -11,13 +11,13 @@ import {
   type CompressionPlan,
   type CompressionResult,
   type ImageMetadata,
-} from "./libs/strategy.js";
+} from "./libs/strategy.ts";
 
 export {
   detectImageFormat,
   isPalettePng,
   type ImageFormat,
-} from "./libs/format.js";
+} from "./libs/format.ts";
 export {
   clampQuality,
   estimateJpegQuality,
@@ -27,7 +27,7 @@ export {
   selectPngQuality,
   type QualityOptions,
   type QualityPreset,
-} from "./libs/quality.js";
+} from "./libs/quality.ts";
 export {
   createCompressionPlan,
   shouldUsePng8,
@@ -38,7 +38,7 @@ export {
   type CompressionResult,
   type ImageMetadata,
   type StrategyCandidate,
-} from "./libs/strategy.js";
+} from "./libs/strategy.ts";
 
 interface BrowserCompressionResult extends CompressionResult {
   readonly primaryBlob: Blob;

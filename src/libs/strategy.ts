@@ -1,10 +1,10 @@
-import { type ImageFormat } from "./format.js";
+import { type ImageFormat } from "./format.ts";
 import {
   clampQuality,
   selectJpegCompressionQuality,
   selectPngQuality,
   type QualityOptions,
-} from "./quality.js";
+} from "./quality.ts";
 
 export type CompressionFormat = ImageFormat | "auto";
 
