@@ -140,18 +140,17 @@ async function compressWithPlan(
 
 async function encodeCandidate(
   buffer: Uint8Array,
-  metadata: ImageMetadata,
+  _metadata: ImageMetadata,
   candidate: CompressionPlan["primary"],
 ): Promise<Uint8Array> {
   const image = sharp(buffer);
 
   if (candidate.format === "png") {
-    const palette = metadata.realFormat === "png" || metadata.colorCount < 256;
     return image
       .png({
         compressionLevel: 9,
         effort: 10,
-        palette,
+        palette: true,
         quality: candidate.maxQuality ?? 90,
         colours: 256,
         dither: 1,

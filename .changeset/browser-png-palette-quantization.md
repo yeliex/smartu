@@ -2,4 +2,4 @@
 "smartu": patch
 ---
 
-Add browser-side PNG palette quantization before OxiPNG optimization.
+Use palette-quantized PNG candidates before final size comparison.

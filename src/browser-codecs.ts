@@ -25,7 +25,7 @@ export async function decodeBrowserImage(buffer: Uint8Array, format: ImageFormat
 }
 
 export async function encodeBrowserCandidate(
-  buffer: Uint8Array,
+  _buffer: Uint8Array,
   metadata: ImageMetadata,
   imageData: ImageData | undefined,
   candidate: CompressionPlan["primary"],
@@ -36,28 +36,17 @@ export async function encodeBrowserCandidate(
 
   if (candidate.format === "png") {
     /*
-     * Source-byte optimization preserves useful PNG structure, while raw pixel
-     * encoding can pick better filters for poorly encoded sources. Palette
-     * quantization mirrors Node's Sharp palette path for PNG-like candidates.
+     * Match Zhitu's PNG flow: produce one palette-quantized PNG candidate,
+     * then let the shared output selection keep the source if it is smaller.
      */
-    const options = {
-      level: 4,
-      interlace: false,
-      optimiseAlpha: metadata.hasAlpha,
-    };
-    const rawPng = new Uint8Array(await optimisePng(imageData, options));
-    const candidates = [rawPng];
-
-    if (metadata.realFormat === "png" || metadata.colorCount < 256) {
-      const quantized = await quantizePngPalette(imageData);
-      candidates.push(new Uint8Array(await optimisePng(quantized, options)));
-    }
-
-    if (metadata.realFormat === "png") {
-      candidates.push(new Uint8Array(await optimisePng(toArrayBuffer(buffer), options)));
-    }
-
-    return candidates.reduce((smallest, current) => (current.byteLength < smallest.byteLength ? current : smallest));
+    const quantized = await quantizePngPalette(imageData);
+    return new Uint8Array(
+      await optimisePng(quantized, {
+        level: 4,
+        interlace: false,
+        optimiseAlpha: metadata.hasAlpha,
+      }),
+    );
   }
 
   if (candidate.format === "jpg") {
