@@ -8,7 +8,7 @@ import {
   type CompressionFormat,
   type CompressionResult,
   type QualityPreset,
-} from "./node.js";
+} from "./node.ts";
 
 interface CliOptions extends CompressionOptions {
   readonly inputs: readonly string[];

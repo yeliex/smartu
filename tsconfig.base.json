@@ -12,6 +12,7 @@
       "DOM",
       "DOM.Iterable"
     ],
+    "allowImportingTsExtensions": true,
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "noEmit": true,
