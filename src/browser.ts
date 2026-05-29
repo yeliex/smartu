@@ -2,6 +2,7 @@ import {
   detectImageFormat,
   isPalettePng,
   type ImageFormat,
+  type SourceImageFormat,
 } from "./libs/format.ts";
 import { estimateJpegQuality } from "./libs/quality.ts";
 import {
@@ -17,6 +18,7 @@ export {
   detectImageFormat,
   isPalettePng,
   type ImageFormat,
+  type SourceImageFormat,
 } from "./libs/format.ts";
 export {
   clampQuality,
@@ -63,11 +65,11 @@ async function analyzeDecodedImage(buffer: Uint8Array): Promise<DecodedBrowserIm
     throw new Error("Unsupported image format.");
   }
 
-  const imageData = await decodeBrowserImage(buffer, realFormat);
-
-  if (!imageData) {
+  if (!isSupportedSourceFormat(realFormat)) {
     throw new Error(`Unsupported image format: ${realFormat}`);
   }
+
+  const imageData = await decodeBrowserImage(buffer, realFormat);
 
   const stats = readPixelStats(imageData.data);
 
@@ -133,6 +135,21 @@ export async function compressImage(
     }
   }
 
+  if (plan.avif) {
+    const avif = await encodeBrowserCandidate(buffer, metadata, imageData, plan.avif);
+    if (avif.byteLength < metadata.size) {
+      alternatives.push({
+        kind: "avif",
+        format: "avif",
+        buffer: avif,
+        size: avif.byteLength,
+        compressed: true,
+        suffix: plan.avif.suffix,
+        reason: plan.avif.reason,
+      });
+    }
+  }
+
   const result: CompressionResult = {
     metadata,
     plan,
@@ -149,6 +166,10 @@ export async function compressImage(
     primaryBlob: blobFromUint8Array(primary.buffer, primary.format),
     alternativeBlobs: alternatives.map((output) => blobFromUint8Array(output.buffer, output.format)),
   };
+}
+
+function isSupportedSourceFormat(format: ImageFormat): format is SourceImageFormat {
+  return format === "png" || format === "jpg";
 }
 
 function choosePrimary(

@@ -10,7 +10,7 @@ const BrowserDemo = dynamic(() => import("./browser-demo"), {
     <Card className="w-full min-w-0 bg-muted/30">
       <CardHeader>
         <CardTitle>Try compress in browser</CardTitle>
-        <CardDescription>PNG, JPEG, and WebP through the shared Smartu strategy.</CardDescription>
+        <CardDescription>PNG and JPEG compression with explicit WebP and AVIF candidates.</CardDescription>
         <CardAction>
           <Badge variant="secondary">Loading</Badge>
         </CardAction>

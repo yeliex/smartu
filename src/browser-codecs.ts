@@ -1,12 +1,13 @@
+import { encode as encodeAvif } from "@jsquash/avif";
 import { decode as decodeJpeg, encode as encodeJpeg } from "@jsquash/jpeg";
 import { optimise as optimisePng } from "@jsquash/oxipng";
 import { decode as decodePng } from "@jsquash/png";
-import { decode as decodeWebp, encode as encodeWebp } from "@jsquash/webp";
+import { encode as encodeWebp } from "@jsquash/webp";
 import { applyPalette, buildPalette, utils } from "image-q";
-import { type ImageFormat } from "./libs/format.ts";
+import { type SourceImageFormat } from "./libs/format.ts";
 import { type CompressionPlan, type ImageMetadata } from "./libs/strategy.ts";
 
-export async function decodeBrowserImage(buffer: Uint8Array, format: ImageFormat): Promise<ImageData | undefined> {
+export async function decodeBrowserImage(buffer: Uint8Array, format: SourceImageFormat): Promise<ImageData> {
   const source = toArrayBuffer(buffer);
 
   if (format === "jpg") {
@@ -17,11 +18,7 @@ export async function decodeBrowserImage(buffer: Uint8Array, format: ImageFormat
     return decodePng(source);
   }
 
-  if (format === "webp") {
-    return decodeWebp(source);
-  }
-
-  return undefined;
+  throw new Error(`Unsupported image format: ${format}`);
 }
 
 export async function encodeBrowserCandidate(
@@ -55,6 +52,15 @@ export async function encodeBrowserCandidate(
         quality: candidate.quality ?? 75,
         progressive: true,
         optimize_coding: true,
+      }),
+    );
+  }
+
+  if (candidate.format === "avif") {
+    return new Uint8Array(
+      await encodeAvif(imageData, {
+        quality: candidate.quality ?? 50,
+        speed: 6,
       }),
     );
   }

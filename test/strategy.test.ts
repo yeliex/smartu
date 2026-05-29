@@ -23,6 +23,7 @@ describe("format detection", () => {
       detectImageFormat(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50])),
       "webp",
     );
+    assert.equal(detectImageFormat(avifFileType()), "avif");
   });
 
   it("returns undefined for unsupported bytes", () => {
@@ -101,8 +102,8 @@ describe("compression strategy planning", () => {
     assert.equal(shouldUsePng8(metadata({ realFormat: "png", colorCount: 300, area: 10_001 })), false);
   });
 
-  it("plans opaque PNG compression with JPEG and optional WebP candidates", () => {
-    const plan = createCompressionPlan(metadata({ realFormat: "png" }), { formats: ["auto", "webp"] });
+  it("plans opaque PNG compression with JPEG and optional modern-format candidates", () => {
+    const plan = createCompressionPlan(metadata({ realFormat: "png" }), { formats: ["auto", "webp", "avif"] });
 
     assert.equal(plan.branch, "png");
     assert.equal(plan.primary.format, "png");
@@ -110,14 +111,24 @@ describe("compression strategy planning", () => {
     assert.equal(plan.converted?.format, "jpg");
     assert.equal(plan.converted?.suffix, "-jpg");
     assert.equal(plan.webp?.format, "webp");
+    assert.equal(plan.avif?.format, "avif");
   });
 
-  it("keeps WebP out of auto format conversion unless explicitly requested", () => {
+  it("keeps WebP and AVIF out of auto format conversion unless explicitly requested", () => {
     const plan = createCompressionPlan(metadata({ realFormat: "png" }), { formats: ["auto"] });
 
     assert.equal(plan.primary.format, "png");
     assert.equal(plan.converted?.format, "jpg");
     assert.equal(plan.webp, undefined);
+    assert.equal(plan.avif, undefined);
+  });
+
+  it("adds AVIF through the explicit generator option", () => {
+    const plan = createCompressionPlan(metadata({ realFormat: "jpg" }), { generateAvif: true });
+
+    assert.equal(plan.primary.format, "jpg");
+    assert.equal(plan.avif?.format, "avif");
+    assert.equal(plan.avif?.quality, 50);
   });
 
   it("keeps the source format when automatic conversion is disabled", () => {
@@ -140,12 +151,12 @@ describe("compression strategy planning", () => {
     assert.equal(plan.converted, undefined);
   });
 
-  it("uses an explicit format list instead of automatic conversion candidates", () => {
+  it("keeps modern formats as side candidates even when explicitly requested alone", () => {
     const plan = createCompressionPlan(metadata({ realFormat: "png" }), { formats: ["webp"] });
 
-    assert.equal(plan.primary.format, "webp");
+    assert.equal(plan.primary.format, "png");
     assert.equal(plan.converted, undefined);
-    assert.equal(plan.webp, undefined);
+    assert.equal(plan.webp?.format, "webp");
   });
 
   it("plans JPEG recompression and limited-color PNG conversion candidates", () => {
@@ -164,12 +175,12 @@ describe("compression strategy planning", () => {
     assert.equal(plan.converted, undefined);
   });
 
-  it("keeps WebP in a format-specific branch", () => {
-    const webpPlan = createCompressionPlan(metadata({ realFormat: "webp" }), { formats: ["auto", "png"] });
+  it("uses explicit PNG/JPEG format lists instead of automatic conversion candidates", () => {
+    const plan = createCompressionPlan(metadata({ realFormat: "png" }), { formats: ["jpg", "avif"] });
 
-    assert.equal(webpPlan.branch, "webp");
-    assert.equal(webpPlan.primary.format, "webp");
-    assert.equal(webpPlan.converted, undefined);
+    assert.equal(plan.primary.format, "jpg");
+    assert.equal(plan.converted, undefined);
+    assert.equal(plan.avif?.format, "avif");
   });
 });
 
@@ -210,4 +221,21 @@ function jpegWithQuantizationTable(): Uint8Array {
   buffer.set(values, 7);
   buffer.set([0xff, 0xda], 71);
   return buffer;
+}
+
+function avifFileType(): Uint8Array {
+  return new Uint8Array([
+    0x00,
+    0x00,
+    0x00,
+    0x18,
+    0x66,
+    0x74,
+    0x79,
+    0x70,
+    0x61,
+    0x76,
+    0x69,
+    0x66,
+  ]);
 }

@@ -25,9 +25,9 @@ interface FileCompressionResult extends CompressionResult {
   readonly visibleFormat?: string;
 }
 
-const imageExtensions = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+const imageExtensions = new Set([".png", ".jpg", ".jpeg"]);
 const qualityPresets = new Set<QualityPreset>(["q1", "q2", "q3", "q4", "q5", "q6"]);
-const outputFormats = new Set<CompressionFormat>(["auto", "png", "jpg", "webp"]);
+const outputFormats = new Set<CompressionFormat>(["auto", "png", "jpg", "webp", "avif"]);
 
 /*
  * CLI owns filesystem concerns around the buffer-only package API: input
@@ -158,7 +158,7 @@ function parseArgs(args: readonly string[]): CliOptions {
     .option("--recursive", "recurse into input directories", false)
     .option(
       "--format <formats>",
-      "comma-separated output formats: auto,png,jpg,jpeg,webp; default keeps source format. auto tries PNG/JPEG conversion only, WebP requires webp",
+      "comma-separated output formats: auto,png,jpg,jpeg,webp,avif; default keeps source format. auto tries PNG/JPEG conversion only, WebP/AVIF require explicit formats",
       parseFormatList,
     )
     .option("-q, --quality <quality>", "quality mode: auto, q1..q6, or a numeric adjustment (default: auto)", parseQuality)
