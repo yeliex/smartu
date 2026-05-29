@@ -1,5 +1,12 @@
 # smartu
 
+## 0.2.1
+
+### Patch Changes
+
+- 707e890: Add explicit AVIF output candidates while keeping WebP and AVIF out of source-input compression.
+- 921a394: Align PNG compression across Node and browser runtimes with a shared jsquash Oxi pipeline and gated palette quantization.
+
 ## 0.2.0
 
 ### Minor Changes
