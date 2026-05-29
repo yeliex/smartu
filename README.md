@@ -1,17 +1,19 @@
 # Smartu
 
-## Codex Skill
-
-Install the Smartu image compression skill:
+Quick start:
 
 ```bash
+# Install as a Codex skill.
 npx skills add https://github.com/yeliex/smartu -g
-```
 
-Or ask an LLM/agent that can install skills:
-
-```text
+# Or ask an LLM/agent that can install skills.
 skill install https://github.com/yeliex/smartu
+
+# Compress current directory.
+npx smartu@latest ./
+
+# Replace original files only when compressed output is smaller.
+npx smartu@latest ./ --replace
 ```
 
 Smartu is an intelligent image compression project inspired by Zhitu from the Tencent ISUX team.
