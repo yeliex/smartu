@@ -188,7 +188,7 @@ async function encodeCandidate(
   if (candidate.format === "avif") {
     return image
       .avif({
-        quality: candidate.quality ?? 50,
+        quality: candidate.quality ?? 80,
         effort: 6,
       })
       .toBuffer();
