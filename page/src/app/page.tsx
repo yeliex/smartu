@@ -90,11 +90,20 @@ export default function Home() {
             </span>
           </a>
           <nav className="hidden items-center gap-6 text-sm font-medium text-zinc-600 md:flex">
-            {navLinks.map(([label, href]) => (
-              <a key={label} className="transition hover:text-zinc-950" href={href}>
-                {label}
-              </a>
-            ))}
+            {navLinks.map(([label, href]) => {
+              const isExternalLink = href.startsWith("http");
+
+              return (
+                <a
+                  key={label}
+                  className="transition hover:text-zinc-950"
+                  href={href}
+                  target={isExternalLink ? "_blank" : undefined}
+                >
+                  {label}
+                </a>
+              );
+            })}
           </nav>
         </div>
       </header>
@@ -133,7 +142,11 @@ export default function Home() {
                 Developer doc
               </Button>
             </div>
-            <Button className="mt-3 w-fit px-0" render={<a href="https://github.com/yeliex/smartu" />} variant="link">
+            <Button
+              className="mt-3 w-fit px-0"
+              render={<a href="https://github.com/yeliex/smartu" target="_blank" />}
+              variant="link"
+            >
               View source on GitHub
             </Button>
 
