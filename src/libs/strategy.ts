@@ -1,4 +1,4 @@
-import { type ImageFormat } from "./format.ts";
+import { type ImageFormat, type SourceImageFormat } from "./format.ts";
 import {
   clampQuality,
   selectJpegCompressionQuality,
@@ -9,7 +9,7 @@ import {
 export type CompressionFormat = ImageFormat | "auto";
 
 export interface ImageMetadata {
-  readonly realFormat: ImageFormat;
+  readonly realFormat: SourceImageFormat;
   readonly width: number;
   readonly height: number;
   readonly area: number;
@@ -24,6 +24,7 @@ export interface CompressionOptions extends QualityOptions {
   readonly formats?: readonly CompressionFormat[];
   readonly allowFormatConversion?: boolean;
   readonly generateWebp?: boolean;
+  readonly generateAvif?: boolean;
 }
 
 export function shouldUsePng8(metadata: ImageMetadata): boolean {
@@ -31,7 +32,7 @@ export function shouldUsePng8(metadata: ImageMetadata): boolean {
 }
 
 export interface StrategyCandidate {
-  readonly kind: "primary" | "converted" | "webp";
+  readonly kind: "primary" | "converted" | "webp" | "avif";
   readonly format: ImageFormat;
   readonly quality?: number;
   readonly minQuality?: number;
@@ -41,10 +42,11 @@ export interface StrategyCandidate {
 }
 
 export interface CompressionPlan {
-  readonly branch: "png" | "png8" | "jpg" | "webp";
+  readonly branch: "png" | "png8" | "jpg";
   readonly primary: StrategyCandidate;
   readonly converted?: StrategyCandidate;
   readonly webp?: StrategyCandidate;
+  readonly avif?: StrategyCandidate;
 }
 
 export interface CompressionOutput {
@@ -87,8 +89,8 @@ export function createCompressionPlan(
 
   /*
    * Auto mode keeps PNG as the primary output so alpha and palette information
-   * remain safe by default. Explicit --format choices can make JPEG/WebP the
-   * primary candidate, but size comparison still happens after runtime encoding.
+   * remain safe by default. WebP and AVIF stay explicit side candidates because
+   * Smartu's default job is compression, not modern-format conversion.
    */
   if (metadata.realFormat === "png") {
     const usePng8 = shouldUsePng8(metadata);
@@ -106,6 +108,7 @@ export function createCompressionPlan(
       reason: "png-to-jpg-smaller-candidate",
     };
     const webp = createWebpCandidate();
+    const avif = createAvifCandidate();
     const candidates: CandidateTemplate[] = [];
 
     addRequestedCandidates(candidates, formats, {
@@ -114,11 +117,12 @@ export function createCompressionPlan(
         png,
         jpg,
         webp,
+        avif,
       },
       fallback: png,
     });
 
-    return createPlan(usePng8 ? "png8" : "png", candidates);
+    return createPlan(usePng8 ? "png8" : "png", prioritizePrimary(candidates, png));
   }
 
   /*
@@ -139,6 +143,7 @@ export function createCompressionPlan(
       reason: metadata.colorCount < 256 ? "jpg-to-png8-smaller-candidate" : "jpg-to-png-smaller-candidate",
     };
     const webp = createWebpCandidate();
+    const avif = createAvifCandidate();
     const candidates: CandidateTemplate[] = [];
 
     addRequestedCandidates(candidates, formats, {
@@ -147,24 +152,15 @@ export function createCompressionPlan(
         jpg,
         png: metadata.colorCount <= 30_000 ? png : undefined,
         webp,
+        avif,
       },
       fallback: jpg,
     });
 
-    return createPlan("jpg", candidates);
+    return createPlan("jpg", prioritizePrimary(candidates, jpg));
   }
 
-  /*
-   * WebP inputs are recompressed as WebP only; alternate conversion is omitted
-   * until there is a clear rule that can beat the source without format churn.
-   */
-  return createPlan("webp", [
-    {
-      format: "webp",
-      quality: 80,
-      reason: "webp-recompression",
-    },
-  ]);
+  throw new Error("Unsupported source format.");
 }
 
 function resolveFormats(options: CompressionOptions): readonly CompressionFormat[] {
@@ -172,6 +168,10 @@ function resolveFormats(options: CompressionOptions): readonly CompressionFormat
 
   if (options.generateWebp === true && !formats.includes("webp")) {
     formats.push("webp");
+  }
+
+  if (options.generateAvif === true && !formats.includes("avif")) {
+    formats.push("avif");
   }
 
   return formats;
@@ -220,6 +220,28 @@ function createWebpCandidate(): CandidateTemplate {
   };
 }
 
+function createAvifCandidate(): CandidateTemplate {
+  return {
+    format: "avif",
+    quality: 50,
+    suffix: "-avif",
+    reason: "avif-candidate",
+  };
+}
+
+function prioritizePrimary(
+  candidates: readonly CandidateTemplate[],
+  fallback: CandidateTemplate,
+): readonly CandidateTemplate[] {
+  const primary = candidates.find((candidate) => !isModernCandidate(candidate)) ?? fallback;
+  const alternatives = candidates.filter((candidate) => candidate.format !== primary.format);
+  return [primary, ...alternatives];
+}
+
+function isModernCandidate(candidate: CandidateTemplate): boolean {
+  return candidate.format === "webp" || candidate.format === "avif";
+}
+
 function createPlan(branch: CompressionPlan["branch"], candidates: readonly CandidateTemplate[]): CompressionPlan {
   const [primary, ...alternatives] = candidates;
 
@@ -227,14 +249,16 @@ function createPlan(branch: CompressionPlan["branch"], candidates: readonly Cand
     throw new Error("Compression plan requires at least one candidate.");
   }
 
-  const converted = alternatives.find((candidate) => candidate.format !== "webp");
+  const converted = alternatives.find((candidate) => candidate.format !== "webp" && candidate.format !== "avif");
   const webp = alternatives.find((candidate) => candidate.format === "webp");
+  const avif = alternatives.find((candidate) => candidate.format === "avif");
 
   return {
     branch,
     primary: toStrategyCandidate(primary, "primary"),
     converted: converted ? toStrategyCandidate(converted, "converted") : undefined,
     webp: webp ? toStrategyCandidate(webp, "webp") : undefined,
+    avif: avif ? toStrategyCandidate(avif, "avif") : undefined,
   };
 }
 

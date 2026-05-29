@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const imageExtensions = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+const imageExtensions = new Set([".png", ".jpg", ".jpeg"]);
 
 const options = parseArgs(process.argv.slice(2));
 const nodeEntry = path.join(rootDir, "dist", "node.mjs");
