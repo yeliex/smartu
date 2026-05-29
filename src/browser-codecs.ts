@@ -93,7 +93,7 @@ export async function encodeBrowserCandidate(
   if (candidate.format === "avif") {
     return new Uint8Array(
       await encodeAvif(imageData, {
-        quality: candidate.quality ?? 50,
+        quality: candidate.quality ?? 80,
         speed: 6,
       }),
     );

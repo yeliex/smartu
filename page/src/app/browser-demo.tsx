@@ -2,11 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SettingsIcon } from "lucide-react";
-import {
-  compressImage,
-  type CompressionOptions,
-  type CompressionOutput,
-} from "smartu";
+import { type CompressionOptions } from "smartu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,12 +27,47 @@ interface FileRow {
   readonly processing: boolean;
 }
 
+interface CompressionWorkerRequest {
+  readonly id: string;
+  readonly file: File;
+  readonly options: CompressionOptions;
+}
+
+interface CompressionWorkerOutput {
+  readonly blob: Blob;
+  readonly format: string;
+  readonly reason: string;
+  readonly size: number;
+  readonly suffix?: string;
+}
+
+interface CompressionWorkerSuccess {
+  readonly id: string;
+  readonly ok: true;
+  readonly outputs: readonly CompressionWorkerOutput[];
+}
+
+interface CompressionWorkerFailure {
+  readonly id: string;
+  readonly ok: false;
+  readonly error: string;
+}
+
+type CompressionWorkerMessage = CompressionWorkerSuccess | CompressionWorkerFailure;
+
 export default function BrowserDemo() {
   const [rows, setRows] = useState<readonly FileRow[]>([]);
   const [allowFormatConversion, setAllowFormatConversion] = useState(true);
   const [generateWebp, setGenerateWebp] = useState(false);
   const [generateAvif, setGenerateAvif] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const compressionWorkerRef = useRef<Worker | null>(null);
+  const pendingCompressionRequestsRef = useRef(
+    new Map<string, {
+      readonly resolve: (outputs: readonly CompressionWorkerOutput[]) => void;
+      readonly reject: (reason?: unknown) => void;
+    }>(),
+  );
   const rowsRef = useRef<readonly FileRow[]>([]);
 
   const options = useMemo<CompressionOptions>(
@@ -57,15 +88,24 @@ export default function BrowserDemo() {
     return () => revokeRows(rowsRef.current);
   }, []);
 
+  useEffect(() => {
+    const pendingRequests = pendingCompressionRequestsRef.current;
+
+    return () => {
+      compressionWorkerRef.current?.terminate();
+      compressionWorkerRef.current = null;
+      for (const request of pendingRequests.values()) {
+        request.reject(new Error("Compression worker stopped."));
+      }
+      pendingRequests.clear();
+    };
+  }, []);
+
   async function compressFile(nextFile: File, nextOptions: CompressionOptions, id: string) {
     try {
-      const result = await compressImage(nextFile, nextOptions);
-      const outputs: DemoOutput[] = [
-        toDemoOutput(nextFile.name, result.primary, result.primaryBlob),
-        ...result.alternatives.map((output, index) =>
-          toDemoOutput(nextFile.name, output, result.alternativeBlobs[index] ?? result.primaryBlob),
-        ),
-      ];
+      const outputs = (await compressFileInWorker(nextFile, nextOptions, id)).map((output) =>
+        toDemoOutput(nextFile.name, output),
+      );
 
       setRows((currentRows) =>
         currentRows.map((row) =>
@@ -113,6 +153,70 @@ export default function BrowserDemo() {
     for (const [index, file] of nextFiles.entries()) {
       await compressFile(file, nextOptions, nextRows[index]?.id ?? rowId(file, index));
     }
+  }
+
+  function getCompressionWorker(): Worker {
+    if (compressionWorkerRef.current) {
+      return compressionWorkerRef.current;
+    }
+
+    const worker = new Worker(new URL("./browser-compression.worker.ts", import.meta.url), {
+      type: "module",
+    });
+
+    worker.onmessage = (event: MessageEvent<CompressionWorkerMessage>) => {
+      const message = event.data;
+      const pendingRequest = pendingCompressionRequestsRef.current.get(message.id);
+      if (!pendingRequest) {
+        return;
+      }
+
+      pendingCompressionRequestsRef.current.delete(message.id);
+      if (message.ok) {
+        pendingRequest.resolve(message.outputs);
+        return;
+      }
+
+      pendingRequest.reject(new Error(message.error));
+    };
+
+    worker.onerror = (event) => {
+      const error = new Error(event.message);
+      for (const request of pendingCompressionRequestsRef.current.values()) {
+        request.reject(error);
+      }
+
+      pendingCompressionRequestsRef.current.clear();
+      worker.terminate();
+      compressionWorkerRef.current = null;
+    };
+
+    compressionWorkerRef.current = worker;
+    return worker;
+  }
+
+  async function compressFileInWorker(
+    file: File,
+    nextOptions: CompressionOptions,
+    id: string,
+  ): Promise<readonly CompressionWorkerOutput[]> {
+    const worker = getCompressionWorker();
+    const message: CompressionWorkerRequest = {
+      id,
+      file,
+      options: nextOptions,
+    };
+
+    return new Promise((resolve, reject) => {
+      pendingCompressionRequestsRef.current.set(id, { resolve, reject });
+
+      try {
+        worker.postMessage(message);
+      } catch (postError) {
+        pendingCompressionRequestsRef.current.delete(id);
+        reject(postError);
+      }
+    });
   }
 
   return (
@@ -233,10 +337,10 @@ function revokeRows(rows: readonly FileRow[]) {
   }
 }
 
-function toDemoOutput(sourceName: string, output: CompressionOutput, blob: Blob): DemoOutput {
+function toDemoOutput(sourceName: string, output: CompressionWorkerOutput): DemoOutput {
   return {
     name: outputFileName(sourceName, output),
-    url: URL.createObjectURL(blob),
+    url: URL.createObjectURL(output.blob),
     size: output.size,
     format: output.format,
     reason: output.reason,
@@ -260,7 +364,7 @@ function formatCompressionRatio(sourceSize: number, outputSize: number): string 
   return `${Math.round(ratio * 1000) / 10}%`;
 }
 
-function outputFileName(sourceName: string, output: CompressionOutput): string {
+function outputFileName(sourceName: string, output: CompressionWorkerOutput): string {
   const dotIndex = sourceName.lastIndexOf(".");
   const basename = dotIndex >= 0 ? sourceName.slice(0, dotIndex) : sourceName;
   return `${basename}${output.suffix ?? ""}.${output.format}`;

@@ -52,7 +52,6 @@
   "packageManager": "pnpm@10.33.4",
   "scripts": {
     "build": "pkgroll --tsconfig tsconfig.base.json",
-    "build:page": "pnpm build && pnpm --dir page build",
     "benchmark:strategy": "node scripts/benchmark-strategy.mjs",
     "dev:page": "pnpm --dir page dev",
     "lint": "pnpm --dir page lint",
