@@ -128,7 +128,7 @@ describe("compression strategy planning", () => {
 
     assert.equal(plan.primary.format, "jpg");
     assert.equal(plan.avif?.format, "avif");
-    assert.equal(plan.avif?.quality, 50);
+    assert.equal(plan.avif?.quality, 80);
   });
 
   it("keeps the source format when automatic conversion is disabled", () => {

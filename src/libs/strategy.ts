@@ -223,7 +223,7 @@ function createWebpCandidate(): CandidateTemplate {
 function createAvifCandidate(): CandidateTemplate {
   return {
     format: "avif",
-    quality: 50,
+    quality: 80,
     suffix: "-avif",
     reason: "avif-candidate",
   };
