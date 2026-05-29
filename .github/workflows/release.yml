@@ -15,7 +15,6 @@ concurrency: ${{ github.workflow }}-${{ github.event_name == 'workflow_run' && g
 permissions:
   contents: write
   pull-requests: write
-  actions: write
   id-token: write
 
 jobs:
@@ -49,17 +48,17 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate Changesets Token
+        env:
+          CHANGESET_GITHUB_TOKEN: ${{ secrets.CHANGESET_GITHUB_TOKEN }}
+        run: test -n "$CHANGESET_GITHUB_TOKEN"
+
       - name: Create Release Pull Request
-        id: changesets
         uses: changesets/action@v1
         with:
           title: Version Packages
           publish: pnpm changeset publish
+          commitMode: github-api
+          github-token: ${{ secrets.CHANGESET_GITHUB_TOKEN }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Trigger Release Pull Request Checks
-        if: steps.changesets.outputs.hasChangesets == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run test.yml --ref changeset-release/master
+          GITHUB_TOKEN: ${{ secrets.CHANGESET_GITHUB_TOKEN }}
