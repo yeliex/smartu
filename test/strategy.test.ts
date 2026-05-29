@@ -8,12 +8,14 @@ import {
   selectJpegBaseQuality,
   selectJpegCompressionQuality,
   selectPngQuality,
+  usesPngAlphaQualityBranch,
 } from "../src/libs/quality.js";
 import {
   createCompressionPlan,
   shouldUsePng8,
   type ImageMetadata,
 } from "../src/libs/strategy.js";
+import { acceptsPngQuantization, estimatePngQuantizationQuality } from "../src/libs/png-quantize.js";
 
 describe("format detection", () => {
   it("detects image formats from encoded bytes", () => {
@@ -67,6 +69,22 @@ describe("quality selection", () => {
     assert.equal(selectPngQuality(pngMetadata({ hasAlpha: true, size: 1024 * 1024 + 1 })), 10);
   });
 
+  it("matches Zhitu's PNG alpha quality branch cutoff for large images", () => {
+    assert.equal(usesPngAlphaQualityBranch(pngMetadata({ hasAlpha: true, area: 999_999 })), true);
+    assert.equal(usesPngAlphaQualityBranch(pngMetadata({ hasAlpha: true, area: 1_000_000 })), false);
+    assert.equal(
+      selectPngQuality(
+        pngMetadata({
+          hasAlpha: true,
+          area: 1_572_864,
+          size: 2 * 1024 * 1024,
+          colorCount: 30_001,
+        }),
+      ),
+      90,
+    );
+  });
+
   it("applies explicit PNG quality adjustment once", () => {
     assert.equal(selectPngQuality(pngMetadata(), { qualityAdjustment: 5 }), 88);
   });
@@ -92,6 +110,25 @@ describe("quality selection", () => {
   it("estimates JPEG source quality from the first quantization table", () => {
     assert.equal(estimateJpegQuality(new Uint8Array([0xff, 0xd8, 0xff, 0xda])), 75);
     assert.equal(estimateJpegQuality(jpegWithQuantizationTable()), 50);
+  });
+
+  it("gates PNG quantization candidates by an approximate pngquant-style quality floor", () => {
+    const source = rgbaImageData([
+      [100, 100, 100, 255],
+      [110, 110, 110, 255],
+    ]);
+    const close = rgbaImageData([
+      [101, 100, 100, 255],
+      [109, 110, 110, 255],
+    ]);
+    const noisy = rgbaImageData([
+      [160, 100, 100, 255],
+      [40, 110, 110, 255],
+    ]);
+
+    assert.equal(acceptsPngQuantization(source, close, 90), true);
+    assert.equal(acceptsPngQuantization(source, noisy, 90), false);
+    assert.equal(estimatePngQuantizationQuality(source, close) > estimatePngQuantizationQuality(source, noisy), true);
   });
 });
 
@@ -151,6 +188,23 @@ describe("compression strategy planning", () => {
     assert.equal(plan.converted, undefined);
   });
 
+  it("routes large transparent PNG inputs like Zhitu's non-alpha branch", () => {
+    const plan = createCompressionPlan(
+      metadata({
+        realFormat: "png",
+        area: 1_572_864,
+        size: 2 * 1024 * 1024,
+        colorCount: 30_001,
+        hasAlpha: true,
+      }),
+    );
+
+    assert.equal(plan.branch, "png");
+    assert.equal(plan.primary.reason, "png-truecolor");
+    assert.equal(plan.primary.maxQuality, 90);
+    assert.equal(plan.converted?.format, "jpg");
+  });
+
   it("keeps modern formats as side candidates even when explicitly requested alone", () => {
     const plan = createCompressionPlan(metadata({ realFormat: "png" }), { formats: ["webp"] });
 
@@ -208,6 +262,24 @@ function metadata(overrides: Partial<ImageMetadata> = {}): ImageMetadata {
     isPng8: false,
     jpegQuality: 0,
     ...overrides,
+  };
+}
+
+function rgbaImageData(pixels: readonly (readonly [number, number, number, number])[]): {
+  readonly data: Uint8ClampedArray;
+  readonly width: number;
+  readonly height: number;
+} {
+  const data = new Uint8ClampedArray(pixels.length * 4);
+
+  for (const [index, pixel] of pixels.entries()) {
+    data.set(pixel, index * 4);
+  }
+
+  return {
+    data,
+    width: pixels.length,
+    height: 1,
   };
 }
 

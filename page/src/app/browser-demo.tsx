@@ -58,8 +58,8 @@ type CompressionWorkerMessage = CompressionWorkerSuccess | CompressionWorkerFail
 export default function BrowserDemo() {
   const [rows, setRows] = useState<readonly FileRow[]>([]);
   const [allowFormatConversion, setAllowFormatConversion] = useState(true);
-  const [generateWebp, setGenerateWebp] = useState(true);
-  const [generateAvif, setGenerateAvif] = useState(true);
+  const [generateWebp, setGenerateWebp] = useState(false);
+  const [generateAvif, setGenerateAvif] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const compressionWorkerRef = useRef<Worker | null>(null);
   const pendingCompressionRequestsRef = useRef(
