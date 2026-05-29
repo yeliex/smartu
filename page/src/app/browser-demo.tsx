@@ -35,6 +35,7 @@ export default function BrowserDemo() {
   const [rows, setRows] = useState<readonly FileRow[]>([]);
   const [allowFormatConversion, setAllowFormatConversion] = useState(true);
   const [generateWebp, setGenerateWebp] = useState(true);
+  const [generateAvif, setGenerateAvif] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const rowsRef = useRef<readonly FileRow[]>([]);
 
@@ -42,9 +43,10 @@ export default function BrowserDemo() {
     () => ({
       allowFormatConversion,
       generateWebp,
+      generateAvif,
       qualityPreset: "q5",
     }),
-    [allowFormatConversion, generateWebp],
+    [allowFormatConversion, generateAvif, generateWebp],
   );
 
   useEffect(() => {
@@ -117,7 +119,7 @@ export default function BrowserDemo() {
     <Card className="w-full min-w-0 bg-muted/30">
       <CardHeader>
         <CardTitle>Try compress in browser</CardTitle>
-        <CardDescription>PNG, JPEG, and WebP through the shared Smartu strategy.</CardDescription>
+        <CardDescription>PNG and JPEG compression with explicit WebP and AVIF candidates.</CardDescription>
         <CardAction>
           <Popover>
             <PopoverTrigger
@@ -145,6 +147,13 @@ export default function BrowserDemo() {
                   onCheckedChange={(checked) => setGenerateWebp(checked === true)}
                 />
               </label>
+              <label className="flex items-center justify-between rounded-lg border p-3 text-sm">
+                <span>AVIF candidate</span>
+                <Checkbox
+                  checked={generateAvif}
+                  onCheckedChange={(checked) => setGenerateAvif(checked === true)}
+                />
+              </label>
             </PopoverContent>
           </Popover>
         </CardAction>
@@ -167,7 +176,7 @@ export default function BrowserDemo() {
         className="sr-only"
         type="file"
         multiple
-        accept="image/png,image/jpeg,image/webp"
+        accept="image/png,image/jpeg"
         onChange={(event) => void handleFiles(event.currentTarget.files)}
       />
 

@@ -1,6 +1,6 @@
 ---
 name: smartu
-description: Compress and optimize local image assets with Smartu. Use when the user asks to compress, optimize, shrink, batch-process, convert, or safely replace PNG, JPEG, WebP, or image directories, and when building or updating frontend pages, websites, or apps that include local image assets.
+description: Compress and optimize local image assets with Smartu. Use when the user asks to compress, optimize, shrink, batch-process, convert, or safely replace PNG/JPEG images or image directories, and when building or updating frontend pages, websites, or apps that include local image assets.
 ---
 
 # Smartu Compress
@@ -25,7 +25,7 @@ npx -y smartu@latest ./images --out ./compressed --recursive
 4. Add format candidates only when requested or clearly useful:
 
 ```bash
-npx -y smartu@latest ./images --out ./compressed --format auto,webp
+npx -y smartu@latest ./images --out ./compressed --format auto,webp,avif
 ```
 
 5. Use `--json` when you need a machine-readable result for summaries or follow-up automation:
@@ -49,9 +49,9 @@ Options:
                            output is smaller (default: false)
   --recursive              recurse into input directories (default: false)
   --format <formats>       comma-separated output formats:
-                           auto,png,jpg,jpeg,webp; default keeps source format.
-                           auto tries PNG/JPEG conversion only, WebP requires
-                           webp
+                           auto,png,jpg,jpeg,webp,avif; default keeps source
+                           format. auto tries PNG/JPEG conversion only,
+                           WebP/AVIF require explicit formats
   -q, --quality <quality>  quality mode: auto, q1..q6, or a numeric adjustment
                            (default: auto)
   --json                   print machine-readable results (default: false)
@@ -64,7 +64,7 @@ Options:
 - `-o, --out <dir>`: Write compressed files to a directory. Use this by default to avoid mutating source files.
 - `--replace`: Replace originals only when the primary compressed output is smaller. Use only when the user explicitly asks for in-place replacement.
 - `--recursive`: Recurse into nested directories. Add this for directory trees.
-- `--format <formats>`: Comma-separated formats. Supported values are `auto`, `png`, `jpg`, `jpeg`, and `webp`; `jpeg` is treated as `jpg`. Without this option, Smartu keeps the source format. `auto` tries PNG/JPEG conversion only; include `webp` explicitly to generate WebP candidates.
+- `--format <formats>`: Comma-separated formats. Supported values are `auto`, `png`, `jpg`, `jpeg`, `webp`, and `avif`; `jpeg` is treated as `jpg`. Without this option, Smartu keeps the source format. `auto` tries PNG/JPEG conversion only; include `webp` or `avif` explicitly to generate modern-format candidates.
 - `-q, --quality <quality>`: Use `auto`, `q1` through `q6`, or a numeric adjustment. Prefer `auto` unless the user asks for a specific quality level.
 - `--json`: Print machine-readable results. Use this when you need reliable counts, paths, or sizes for a follow-up summary.
 

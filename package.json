@@ -1,6 +1,6 @@
 {
   "name": "smartu",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Image compression toolkit for browser, Node.js, and CLI workflows.",
   "type": "module",
   "files": [
@@ -71,6 +71,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@jsquash/avif": "^2.1.1",
     "@jsquash/jpeg": "^1.6.0",
     "@jsquash/oxipng": "^2.3.0",
     "@jsquash/png": "^3.1.1",

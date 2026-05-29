@@ -20,7 +20,7 @@ const strategyCards = [
   ["Detection", "Reads the real image format before choosing a compression branch."],
   ["PNG", "Uses alpha, palette, area, color count, and source size thresholds."],
   ["JPEG", "Estimates source quality before selecting recompression quality."],
-  ["Candidates", "Tries PNG/JPEG conversion and WebP outputs only when requested and smaller."],
+  ["Candidates", "Tries PNG/JPEG conversion plus explicit WebP or AVIF outputs only when smaller."],
   ["Replacement", "Keeps original-file replacement explicit and size-gated."],
   ["Runtime split", "Node uses Sharp; browser compression stays on shared strategy and web codecs."],
 ];
@@ -32,7 +32,7 @@ const cliOptions = [
   ["--recursive", "recurse into input directories"],
   [
     "--format <formats>",
-    "comma-separated output formats: auto,png,jpg,jpeg,webp; default keeps source format. auto tries PNG/JPEG conversion only, WebP requires webp",
+    "comma-separated output formats: auto,png,jpg,jpeg,webp,avif; default keeps source format. auto tries PNG/JPEG conversion only, WebP/AVIF require explicit formats",
   ],
   ["-q, --quality <quality>", "quality mode: auto, q1..q6, or a numeric adjustment"],
   ["--json", "print machine-readable results"],
@@ -40,7 +40,7 @@ const cliOptions = [
 ];
 
 const cliCommands = `npx smartu ./images --out ./compressed
-npx smartu ./images --format auto,webp --recursive
+npx smartu ./images --format auto,webp,avif --recursive
 npx smartu ./images --replace
 npx smartu ./images --json`;
 
@@ -49,6 +49,7 @@ const browserCode = `import { compressImage } from "smartu";
 const result = await compressImage(file, {
   allowFormatConversion: true,
   generateWebp: true,
+  generateAvif: true,
 });
 
 const url = URL.createObjectURL(result.primaryBlob);`;
@@ -68,9 +69,10 @@ const apiRows = [
 ];
 
 const optionRows = [
-  ["formats", "Optional candidate list using auto, png, jpg, or webp. When omitted, Smartu uses auto and keeps the source format as the primary path."],
+  ["formats", "Optional candidate list using auto, png, jpg, webp, or avif. When omitted, Smartu uses auto and keeps the source format as the primary path."],
   ["allowFormatConversion", "Controls PNG/JPEG conversion candidates in auto mode. It defaults to true, while encoded outputs are still kept only when smaller."],
   ["generateWebp", "Adds a WebP candidate beside the primary strategy output. WebP is opt-in instead of implied by auto."],
+  ["generateAvif", "Adds an AVIF candidate beside the primary strategy output. AVIF is opt-in instead of implied by auto."],
   ["qualityPreset", "Accepts q1 through q6 as strategy offsets. q5 is neutral; other presets make branch-selected quality more or less aggressive."],
   ["qualityAdjustment", "A numeric quality offset for callers that need direct tuning. When provided, it takes precedence over qualityPreset."],
 ];
@@ -90,11 +92,20 @@ export default function Home() {
             </span>
           </a>
           <nav className="hidden items-center gap-6 text-sm font-medium text-zinc-600 md:flex">
-            {navLinks.map(([label, href]) => (
-              <a key={label} className="transition hover:text-zinc-950" href={href}>
-                {label}
-              </a>
-            ))}
+            {navLinks.map(([label, href]) => {
+              const isExternalLink = href.startsWith("http");
+
+              return (
+                <a
+                  key={label}
+                  className="transition hover:text-zinc-950"
+                  href={href}
+                  target={isExternalLink ? "_blank" : undefined}
+                >
+                  {label}
+                </a>
+              );
+            })}
           </nav>
         </div>
       </header>
@@ -133,7 +144,11 @@ export default function Home() {
                 Developer doc
               </Button>
             </div>
-            <Button className="mt-3 w-fit px-0" render={<a href="https://github.com/yeliex/smartu" />} variant="link">
+            <Button
+              className="mt-3 w-fit px-0"
+              render={<a href="https://github.com/yeliex/smartu" target="_blank" />}
+              variant="link"
+            >
               View source on GitHub
             </Button>
 

@@ -1,5 +1,5 @@
 import sharp, { type Metadata } from "sharp";
-import { isPalettePng, type ImageFormat } from "./libs/format.ts";
+import { isPalettePng, type ImageFormat, type SourceImageFormat } from "./libs/format.ts";
 import { estimateJpegQuality } from "./libs/quality.ts";
 import {
   createCompressionPlan,
@@ -14,6 +14,7 @@ export {
   detectImageFormat,
   isPalettePng,
   type ImageFormat,
+  type SourceImageFormat,
 } from "./libs/format.ts";
 export {
   clampQuality,
@@ -89,7 +90,7 @@ export async function compressImage(
 /*
  * The plan only predicts useful candidates; byte savings are known after
  * encoding. Keep the source when primary output is not smaller, and expose
- * conversion/WebP alternatives only when their encoded size wins.
+ * conversion/WebP/AVIF alternatives only when their encoded size wins.
  */
 async function compressWithPlan(
   buffer: Uint8Array,
@@ -130,6 +131,21 @@ async function compressWithPlan(
     }
   }
 
+  if (plan.avif) {
+    const avif = await encodeCandidate(buffer, metadata, plan.avif);
+    if (avif.byteLength < metadata.size) {
+      alternatives.push({
+        kind: "avif",
+        format: "avif",
+        buffer: avif,
+        size: avif.byteLength,
+        compressed: true,
+        suffix: plan.avif.suffix,
+        reason: plan.avif.reason,
+      });
+    }
+  }
+
   return {
     metadata,
     plan,
@@ -165,6 +181,15 @@ async function encodeCandidate(
         quality: candidate.quality ?? 75,
         progressive: true,
         mozjpeg: true,
+      })
+      .toBuffer();
+  }
+
+  if (candidate.format === "avif") {
+    return image
+      .avif({
+        quality: candidate.quality ?? 50,
+        effort: 6,
       })
       .toBuffer();
   }
@@ -223,7 +248,7 @@ function choosePrimary(
  */
 async function readPixelStats(
   buffer: Uint8Array,
-  format: ImageFormat,
+  format: SourceImageFormat,
   metadata: Metadata,
 ): Promise<{ readonly colorCount: number; readonly hasAlpha: boolean }> {
   const raw = await sharp(buffer, { animated: false }).ensureAlpha().raw().toBuffer({
@@ -258,12 +283,12 @@ async function readPixelStats(
   };
 }
 
-function normalizeSharpFormat(format: string | undefined): ImageFormat | undefined {
+function normalizeSharpFormat(format: string | undefined): SourceImageFormat | undefined {
   if (format === "jpeg") {
     return "jpg";
   }
 
-  if (format === "png" || format === "webp") {
+  if (format === "png") {
     return format;
   }
 

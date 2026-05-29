@@ -1,17 +1,19 @@
 # Smartu
 
-## Codex Skill
-
-Install the Smartu image compression skill:
+Quick start:
 
 ```bash
+# Install as a Codex skill.
 npx skills add https://github.com/yeliex/smartu -g
-```
 
-Or ask an LLM/agent that can install skills:
-
-```text
+# Or ask an LLM/agent that can install skills.
 skill install https://github.com/yeliex/smartu
+
+# Compress current directory.
+npx smartu@latest ./
+
+# Replace original files only when compressed output is smaller.
+npx smartu@latest ./ --replace
 ```
 
 Smartu is an intelligent image compression project inspired by Zhitu from the Tencent ISUX team.
@@ -23,8 +25,8 @@ Instead of blindly applying one compression setting to every file, Smartu aims t
 ## What Smartu Does
 
 - Detects the actual image format instead of relying only on the file extension.
-- Chooses a suitable compression path for common image types such as PNG, JPEG, and WebP.
-- Evaluates whether converting an image to another format is likely to produce a better result.
+- Chooses a suitable compression path for PNG and JPEG sources.
+- Evaluates whether explicit WebP or AVIF candidates produce a smaller side output.
 - Uses a set of experience-based thresholds to select an appropriate compression ratio with minimal visible quality loss.
 - Compares compression candidates and keeps the smaller result only when it improves on the source.
 - Supports local workflows where replacing the original file must be an explicit and safe action.
@@ -79,10 +81,10 @@ After installing the package, compress files or directories into a separate outp
 smartu ./images --out ./compressed
 ```
 
-Try automatic PNG/JPEG format conversion and generate smaller WebP candidates when available:
+Try automatic PNG/JPEG format conversion and generate smaller WebP or AVIF candidates when requested:
 
 ```bash
-smartu ./images --format auto,webp
+smartu ./images --format auto,webp,avif
 ```
 
 Replace original files only when the primary compressed output is smaller:
@@ -95,13 +97,13 @@ Useful options:
 
 - `--replace`: replace the original path only when the primary output is smaller.
 - `--recursive`: recurse into input directories.
-- `--format auto,png,jpg,jpeg,webp`: choose one or more output formats. When omitted, Smartu keeps the source format. `auto` tries PNG/JPEG conversion only; WebP requires `webp`. `jpeg` is treated as `jpg`.
+- `--format auto,png,jpg,jpeg,webp,avif`: choose one or more output formats. When omitted, Smartu keeps the source format. `auto` tries PNG/JPEG conversion only; WebP and AVIF require explicit formats. `jpeg` is treated as `jpg`.
 - `--quality auto|q1..q6|<number>`: choose automatic strategy quality, a preset, or a numeric adjustment.
 - `--json`: emit machine-readable results.
 
 ## Browser Runtime
 
-The browser runtime uses the shared strategy model and WASM codecs for PNG, JPEG, and WebP decoding and encoding. PNG candidates can be palette-quantized before OxiPNG optimization.
+The browser runtime uses the shared strategy model and WASM codecs for PNG/JPEG input decoding plus explicit WebP/AVIF candidate encoding. PNG candidates can be palette-quantized before OxiPNG optimization.
 
 In Next.js App Router projects, import the browser runtime from a client-only boundary such as a component loaded with `next/dynamic(..., { ssr: false })`. If TypeScript needs to resolve the browser condition, add `customConditions: ["browser"]` to the app tsconfig. Image compression should stay in the browser and should not be pulled into SSR.
 
