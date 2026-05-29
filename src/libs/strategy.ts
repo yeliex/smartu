@@ -3,6 +3,7 @@ import {
   clampQuality,
   selectJpegCompressionQuality,
   selectPngQuality,
+  usesPngAlphaQualityBranch,
   type QualityOptions,
 } from "./quality.ts";
 
@@ -28,7 +29,10 @@ export interface CompressionOptions extends QualityOptions {
 }
 
 export function shouldUsePng8(metadata: ImageMetadata): boolean {
-  return metadata.isPng8 || (!metadata.hasAlpha && metadata.colorCount < 256 && metadata.area <= 10_000);
+  return (
+    metadata.isPng8 ||
+    (!usesPngAlphaQualityBranch(metadata) && metadata.colorCount < 256 && metadata.area <= 10_000)
+  );
 }
 
 export interface StrategyCandidate {
@@ -94,12 +98,13 @@ export function createCompressionPlan(
    */
   if (metadata.realFormat === "png") {
     const usePng8 = shouldUsePng8(metadata);
+    const hasAlphaForStrategy = usesPngAlphaQualityBranch(metadata);
     const pngQuality = usePng8 ? 90 : selectPngQuality(metadata, options);
     const png: CandidateTemplate = {
       format: "png",
       minQuality: clampQuality(pngQuality - 1),
       maxQuality: pngQuality,
-      reason: usePng8 ? "png8-palette" : metadata.hasAlpha ? "png-alpha" : "png-truecolor",
+      reason: usePng8 ? "png8-palette" : hasAlphaForStrategy ? "png-alpha" : "png-truecolor",
     };
     const jpg: CandidateTemplate = {
       format: "jpg",
@@ -112,7 +117,7 @@ export function createCompressionPlan(
     const candidates: CandidateTemplate[] = [];
 
     addRequestedCandidates(candidates, formats, {
-      auto: [png, ...(allowFormatConversion && !metadata.hasAlpha ? [jpg] : [])],
+      auto: [png, ...(allowFormatConversion && !hasAlphaForStrategy ? [jpg] : [])],
       explicit: {
         png,
         jpg,
@@ -223,7 +228,7 @@ function createWebpCandidate(): CandidateTemplate {
 function createAvifCandidate(): CandidateTemplate {
   return {
     format: "avif",
-    quality: 50,
+    quality: 80,
     suffix: "-avif",
     reason: "avif-candidate",
   };

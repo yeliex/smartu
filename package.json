@@ -79,6 +79,6 @@
     "@jsquash/webp": "^1.5.0",
     "commander": "^14.0.3",
     "image-q": "^4.0.0",
-    "sharp": "^0.34.5"
+    "wasm-feature-detect": "^1.8.0"
   }
 }

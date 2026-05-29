@@ -50,16 +50,24 @@ interface PngQualityMetadata {
   readonly hasAlpha: boolean;
 }
 
+export function usesPngAlphaQualityBranch(metadata: PngQualityMetadata): boolean {
+  /*
+   * Zhitu only ran its expensive alpha probe for PNGs below this area. Larger
+   * PNGs were routed through the non-alpha quality branch even when the source
+   * did contain transparent pixels.
+   */
+  return metadata.hasAlpha && metadata.area < 1_000_000;
+}
+
 /*
- * PNG quality comes from image structure instead of a single global value.
- * Alpha-heavy or high-color images are more sensitive to visible artifacts, so
- * the strategy lowers quality more cautiously unless the source is clearly
- * large enough to justify aggressive quantization.
+ * PNG quality follows Zhitu's branch thresholds. The hasAlpha input is still
+ * the real source metadata, while usesPngAlphaQualityBranch applies Zhitu's
+ * historical alpha-probe cutoff before choosing the quality bucket.
  */
 export function selectPngQuality(metadata: PngQualityMetadata, options: QualityOptions = {}): number {
   let quality: number;
 
-  if (metadata.hasAlpha) {
+  if (usesPngAlphaQualityBranch(metadata)) {
     quality = 80;
     if (metadata.colorCount > 10_000) {
       quality = 70;

@@ -3,8 +3,14 @@ import { decode as decodeJpeg, encode as encodeJpeg } from "@jsquash/jpeg";
 import { optimise as optimisePng } from "@jsquash/oxipng";
 import { decode as decodePng } from "@jsquash/png";
 import { encode as encodeWebp } from "@jsquash/webp";
-import { applyPalette, buildPalette, utils } from "image-q";
 import { type SourceImageFormat } from "./libs/format.ts";
+import {
+  acceptsPngQuantization,
+  pngOptimizationLevel,
+  quantizePngPalette,
+  shouldTryPngQuantization,
+  type RgbaImageData,
+} from "./libs/png-quantize.ts";
 import { type CompressionPlan, type ImageMetadata } from "./libs/strategy.ts";
 
 export async function decodeBrowserImage(buffer: Uint8Array, format: SourceImageFormat): Promise<ImageData> {
@@ -32,18 +38,46 @@ export async function encodeBrowserCandidate(
   }
 
   if (candidate.format === "png") {
-    /*
-     * Match Zhitu's PNG flow: produce one palette-quantized PNG candidate,
-     * then let the shared output selection keep the source if it is smaller.
-     */
-    const quantized = await quantizePngPalette(imageData);
-    return new Uint8Array(
-      await optimisePng(quantized, {
-        level: 4,
+    if (candidate.reason === "png8-palette") {
+      const quantized = await quantizePngPalette(imageData);
+      return new Uint8Array(
+        await optimisePng(toBrowserImageData(quantized), {
+          level: pngOptimizationLevel,
+          interlace: false,
+          optimiseAlpha: metadata.hasAlpha,
+        }),
+      );
+    }
+
+    const lossless = new Uint8Array(
+      await optimisePng(toArrayBuffer(_buffer), {
+        level: pngOptimizationLevel,
         interlace: false,
         optimiseAlpha: metadata.hasAlpha,
       }),
     );
+
+    if (!shouldTryPngQuantization(metadata)) {
+      return lossless;
+    }
+
+    const quantizedImage = await quantizePngPalette(imageData);
+    const quantized = new Uint8Array(
+      await optimisePng(toBrowserImageData(quantizedImage), {
+        level: pngOptimizationLevel,
+        interlace: false,
+        optimiseAlpha: metadata.hasAlpha,
+      }),
+    );
+
+    if (
+      quantized.byteLength < lossless.byteLength &&
+      acceptsPngQuantization(imageData, quantizedImage, candidate.minQuality ?? 0)
+    ) {
+      return quantized;
+    }
+
+    return lossless;
   }
 
   if (candidate.format === "jpg") {
@@ -101,19 +135,10 @@ function flattenToWhite(imageData: ImageData): ImageData {
   return new ImageData(flattened, imageData.width, imageData.height);
 }
 
-async function quantizePngPalette(imageData: ImageData): Promise<ImageData> {
-  const points = utils.PointContainer.fromImageData(imageData);
-  const palette = await buildPalette([points], {
-    colorDistanceFormula: "pngquant",
-    paletteQuantization: "wuquant",
-    colors: 256,
-  });
-  const quantized = await applyPalette(points, palette, {
-    colorDistanceFormula: "pngquant",
-    imageQuantization: "floyd-steinberg",
-  });
-
-  return new ImageData(new Uint8ClampedArray(quantized.toUint8Array()), imageData.width, imageData.height);
+function toBrowserImageData(imageData: RgbaImageData): ImageData {
+  const data = new Uint8ClampedArray(imageData.data.length);
+  data.set(imageData.data);
+  return new ImageData(data, imageData.width, imageData.height);
 }
 
 function toArrayBuffer(buffer: Uint8Array): ArrayBuffer {
