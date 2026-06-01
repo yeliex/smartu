@@ -39,10 +39,10 @@ const cliOptions = [
   ["-h, --help", "display help for command"],
 ];
 
-const cliCommands = `npx smartu ./images --out ./compressed
-npx smartu ./images --format auto,webp,avif --recursive
-npx smartu ./images --replace
-npx smartu ./images --json`;
+const cliCommands = `npx smartu ./images  --out ./compressed
+npx smartu ./images  --format auto,webp,avif  --recursive
+npx smartu ./images  --replace
+npx smartu ./images  --json`;
 
 const browserCode = `import { compressImage } from "smartu";
 
@@ -198,7 +198,7 @@ export default function Home() {
             Compress files or directories into an output folder, try conversion candidates, or replace
             originals only after Smartu proves the primary output is smaller.
           </p>
-          <pre className="mt-8 overflow-x-auto whitespace-pre rounded bg-zinc-950 p-5 font-mono text-sm leading-7 text-zinc-100">
+          <pre className="mt-8 overflow-x-auto whitespace-pre rounded bg-zinc-950 p-5 text-sm leading-7 text-zinc-100">
             <code>{cliCommands}</code>
           </pre>
           <Table className="mt-6">
